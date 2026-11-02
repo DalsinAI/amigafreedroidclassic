@@ -1,6 +1,6 @@
 # Amiga port intake: Freedroid Classic
 
-- Port Atlas: [g-freedroid-classic](https://www.amigachrome.com/ports/#g-freedroid-classic)
+- Port Atlas: [g-freedroid-classic](https://www.amicradle.com/ports/#g-freedroid-classic)
 - Priority: `P2`
 - Atlas decision: `evaluate`
 - Upstream source: `https://github.com/ReinhardPrix/FreedroidClassic`
