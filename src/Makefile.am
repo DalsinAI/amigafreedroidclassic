@@ -1,6 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-
-AM_CFLAGS = -Wall -W $(WERROR_CFLAGS) -Wunused -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -fno-common -Wnested-externs -Wno-format-zero-length -fno-strict-aliasing -Wno-unused-result -Wno-unknown-pragmas -Wno-misleading-indentation
+##AM_CFLAGS=@CFLAGS@
 
 bin_PROGRAMS = freedroid
 
@@ -20,7 +19,6 @@ freedroid_SOURCES = \
 		config.h \
 		defs.h \
 		enemy.c \
-		fd_memory.c \
 		global.h \
 		graphics.c \
 		highscore.c \
@@ -35,8 +33,6 @@ freedroid_SOURCES = \
 		menu.c \
 		misc.c \
 		proto.h \
-		sdl_compat.c \
-		sdl_compat.h \
 		ship.c \
 		sound.c \
 		struct.h \
@@ -53,14 +49,9 @@ freedroid_SOURCES = \
 freedroidDebug_CFLAGS = $(AM_CFLAGS) -g3 -Og -fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-common
 freedroidDebug_SOURCES = $(freedroid_SOURCES)
 
-freedroid_CPPFLAGS = -DLOCAL_DATADIR=\"$(abs_top_srcdir)\"
+freedroid_CPPFLAGS = -DLOCAL_DATADIR=\"$(top_srcdir)\"
 freedroidDebug_CPPFLAGS = $(freedroid_CPPFLAGS)
 
 WINDRES = i586-mingw32msvc-windres
 freedroid.coff: freedroid.rc ../graphics/paraicon.ico
 	$(WINDRES) -i freedroid.rc -o freedroid.coff -O COFF
-
-.PHONY: strict
-
-strict:
-	$(MAKE) WERROR_CFLAGS=-Werror all

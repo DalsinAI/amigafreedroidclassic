@@ -237,7 +237,7 @@ void
 Get_Robot_Data ( void* DataPointer )
 {
   int RobotIndex = 0;
-  const char *RobotPointer;
+  char *RobotPointer;
 
   float maxspeed_calibrator;
   float acceleration_calibrator;
@@ -457,7 +457,7 @@ Init_Game_Data ( const char * Datafilename )
   ReadValueFromString (Data, BLAST_TWO_TOTAL_AMOUNT_OF_TIME_STRING, "%f", &Blastmap[1].total_animation_time);
 
 
-  MyFree ( Data );
+  free ( Data );
 
   return;
 
@@ -590,7 +590,7 @@ InitNewMission ( const char *MissionName )
   char *fpath;
   int i;
   char *MainMissionPointer;
-  const char *BriefingSectionPointer;
+  char *BriefingSectionPointer;
   char *StartPointPointer;
   char Buffer[500];
   int NumberOfStartPoints=0;
@@ -737,7 +737,7 @@ InitNewMission ( const char *MissionName )
   // must be read in as well
   ReadValueFromString (MainMissionPointer, MISSION_ENDTITLE_SONG_NAME_STRING, "%s", DebriefingSong);
 
-  if (DebriefingText) MyFree(DebriefingText);
+  if (DebriefingText) free(DebriefingText);
   DebriefingText =
     ReadAndMallocStringFromData (MainMissionPointer, MISSION_ENDTITLE_BEGIN_STRING, MISSION_ENDTITLE_END_STRING);
 
@@ -830,7 +830,7 @@ InitNewMission ( const char *MissionName )
 
   DebugPrintf (1, "done."); // this matches the printf at the beginning of this function
 
-  MyFree (MainMissionPointer);
+  free (MainMissionPointer);
 
   return;
 
@@ -903,7 +903,7 @@ InitFreedroid (int argc, char *const argv[])
   Init_Video ();
 
   DisplayImage (find_file (TITLE_PIC_FILE, GRAPHICS_DIR, NO_THEME, CRITICAL)); // show title pic
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip(ne_screen);
 
   Load_Fonts (); // we need this for progress-meter!
 
@@ -959,7 +959,7 @@ Title ( const char *MissionBriefingPointer )
 {
   const char* NextSubsectionStartPointer;
   char* PreparedBriefingText = NULL;
-  const char* TerminationPointer;
+  char* TerminationPointer;
   char Buffer[500];
   int ThisTextLength;
   SDL_Rect rect;
@@ -971,11 +971,12 @@ Title ( const char *MissionBriefingPointer )
   ReadValueFromString (MissionBriefingPointer, BRIEFING_TITLE_SONG_STRING, "%s", Buffer);
   Switch_Background_Music_To (Buffer);
 
-  SDL_SetSurfaceClipRect ( ne_screen, NULL );
+  SDL_SetClipRect ( ne_screen, NULL );
   ReadValueFromString (MissionBriefingPointer, BRIEFING_TITLE_PICTURE_STRING, "%s", Buffer);
   DisplayImage ( find_file(Buffer, GRAPHICS_DIR, NO_THEME, CRITICAL) );
   MakeGridOnScreen( (SDL_Rect*) &Screen_Rect );
   Me.status=BRIEFING;
+  //  SDL_Flip (ne_screen);
 
   SetCurrentFont( Para_BFont );
 
@@ -998,7 +999,7 @@ Title ( const char *MissionBriefingPointer )
 	  Terminate(ERR);
 	}
       ThisTextLength=TerminationPointer-NextSubsectionStartPointer;
-      MyFree ( PreparedBriefingText );
+      free ( PreparedBriefingText );
       PreparedBriefingText = MyMalloc (ThisTextLength + 10);
       strncpy ( PreparedBriefingText , NextSubsectionStartPointer , ThisTextLength );
       PreparedBriefingText[ThisTextLength]=0;
@@ -1011,7 +1012,7 @@ Title ( const char *MissionBriefingPointer )
       }
     } // while(1)
 
-  MyFree ( PreparedBriefingText );
+  free ( PreparedBriefingText );
   PreparedBriefingText = NULL;
   return;
 
@@ -1027,7 +1028,7 @@ ThouArtVictorious(void)
 
   Switch_Background_Music_To ( DebriefingSong );
 
-  SDL_HideCursor ();
+  SDL_ShowCursor (SDL_DISABLE);
 
   ShowScore = (long)RealScore;
   Me.status = VICTORY;
@@ -1046,9 +1047,9 @@ ThouArtVictorious(void)
     }
 
   Copy_Rect(Full_User_Rect, rect);
-  SDL_SetSurfaceClipRect ( ne_screen, NULL );
+  SDL_SetClipRect ( ne_screen, NULL );
   MakeGridOnScreen (&rect);
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip(ne_screen);
   rect.x += 10;
   rect.w -= 20;  //leave some border
   SetCurrentFont( Para_BFont);
@@ -1073,7 +1074,7 @@ ThouArtDefeated (void)
   int h;
 
   Me.status = TERMINATED;
-  SDL_HideCursor ();
+  SDL_ShowCursor (SDL_DISABLE);
 
   ExplodeInfluencer ();
 
@@ -1099,7 +1100,9 @@ ThouArtDefeated (void)
     }
   set_time_factor ( 1.0 );
 
-  Stop_Background_Music();
+#ifdef HAVE_LIBSDL_MIXER
+  Mix_HaltMusic ();
+#endif
 
   // important!!: don't forget to stop fps calculation here (bugfix: enemy piles after gameOver)
   Activate_Conservative_Frame_Computation ();
@@ -1119,7 +1122,7 @@ ThouArtDefeated (void)
   DisplayText ("Transmission", dst.x - h, dst.y - h, &User_Rect);
   DisplayText ("Terminated",  dst.x -h, dst.y + dst.h, &User_Rect);
   printf_SDL(ne_screen, -1, -1, "\n");
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
   now = SDL_GetTicks ();
 
@@ -1182,7 +1185,7 @@ FindAllThemes (void)
   AllThemes.num_themes = 0;
   for (i=0; i< MAX_THEMES; i++)
     {
-      if (AllThemes.theme_name[i]) MyFree(AllThemes.theme_name[i]);
+      if (AllThemes.theme_name[i]) free(AllThemes.theme_name[i]);
       AllThemes.theme_name[i] = NULL;
     }
 
@@ -1193,7 +1196,11 @@ FindAllThemes (void)
       if (location == 1)
 	strcpy (dname, LOCAL_DATADIR); /* then the local fallback */
 
+#ifdef __amigaos__
+      strcat (dname, "graphics");   /* dname is "PROGDIR:" */
+#else
       strcat (dname, "/graphics");
+#endif
 
       if ( (dir = opendir(dname)) == NULL)
 	{
@@ -1308,7 +1315,7 @@ Win32Disclaimer (void)
 {
   SDL_Rect rect;
 
-  SDL_SetSurfaceClipRect ( ne_screen, NULL );
+  SDL_SetClipRect ( ne_screen, NULL );
   DisplayImage (find_file (TITLE_PIC_FILE, GRAPHICS_DIR, NO_THEME, CRITICAL)); // show title pic
   MakeGridOnScreen( (SDL_Rect*) &Screen_Rect );
 
@@ -1321,7 +1328,7 @@ Win32Disclaimer (void)
 It is developed on a free operating system (GNU/Linux) using exclusively free tools. \
 For more information about Free Software see the GPL licence (in the file COPYING)\n\
 or visit http://www.gnu.org.\n\n\n Press fire to play.", rect.x, rect.y, &rect);
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
   wait_for_key_pressed();
 
@@ -1336,9 +1343,9 @@ FreeDruidmap ( void )
   }
   int i;
   for (i=0; i < Number_Of_Droid_Types; i++) {
-    MyFree (Druidmap[i].notes);
+    free (Druidmap[i].notes);
   }
-  MyFree(Druidmap);
+  free(Druidmap);
   Druidmap = NULL;
 
   return;
@@ -1349,26 +1356,16 @@ FreeGameMem ( void )
 {
   int i, j;
 
-  for ( i = 0; i < MAX_THEMES; i++ )
-    {
-      if ( AllThemes.theme_name[i] != NULL )
-        {
-          MyFree ( AllThemes.theme_name[i] );
-          AllThemes.theme_name[i] = NULL;
-        }
-    }
-  AllThemes.num_themes = 0;
-
   // free bullet map
   if ( Bulletmap != NULL )
     {
       int num_pics = sizeof(Bulletmap[0].SurfacePointer)/sizeof(Bulletmap[0].SurfacePointer[0]);
       for ( i = 0; i < Number_Of_Bullet_Types; i ++ ) {
         for ( j = 0; j < num_pics; j ++ ) {
-          SDL_DestroySurface ( Bulletmap[i].SurfacePointer[j] );
+          SDL_FreeSurface ( Bulletmap[i].SurfacePointer[j] );
         }
       }
-      MyFree ( Bulletmap );
+      free ( Bulletmap );
       Bulletmap = NULL;
     }
 
@@ -1377,7 +1374,7 @@ FreeGameMem ( void )
   int num_blastphases = sizeof(Blastmap[0].SurfacePointer)/sizeof(Blastmap[0].SurfacePointer[0]);
   for ( i = 0; i < num_blasttypes; i ++ ) {
     for ( j = 0; j < num_blastphases; j ++ ) {
-      SDL_DestroySurface ( Blastmap[i].SurfacePointer[j] );
+      SDL_FreeSurface ( Blastmap[i].SurfacePointer[j] );
       Blastmap[i].SurfacePointer[j] = NULL;
     }
   }
@@ -1388,14 +1385,14 @@ FreeGameMem ( void )
   // free highscores list
   if ( Highscores != NULL ) {
     for ( i = 0; i < num_highscores; i ++ ) {
-      MyFree ( Highscores[i] );
+      free ( Highscores[i] );
     }
-    MyFree ( Highscores );
+    free ( Highscores );
     Highscores = NULL;
   }
 
   // free constant text blobs
-  MyFree ( DebriefingText );
+  free ( DebriefingText );
   DebriefingText = NULL;
 
   return;

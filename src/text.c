@@ -193,6 +193,8 @@ AddInfluBurntText( void )
 int
 ScrollText (char *Text, SDL_Rect *rect)
 {
+  int Number_Of_Line_Feeds = 0;		/* Anzahl der Textzeilen */
+  char *textpt;			/* bewegl. Textpointer */
   float InsertLine = 1.0*rect->y;
   int speed = 30;   // in pixel / sec
   int maxspeed = 150;
@@ -201,9 +203,15 @@ ScrollText (char *Text, SDL_Rect *rect)
   Uint32 prev_tick, now;
   bool just_started = TRUE;
 
-  Background = SDL_ConvertSurface (ne_screen, ne_screen->format);
+  Background = SDL_DisplayFormat( ne_screen );
 
   // first_tick = SDL_GetTicks ();
+
+  // count the number of lines in the text
+  textpt = Text;
+  while (*textpt++)
+    if (*textpt == '\n')
+      Number_Of_Line_Feeds++;
 
   wait_for_all_keys_released();
   while (1)
@@ -215,7 +223,7 @@ ScrollText (char *Text, SDL_Rect *rect)
 	  ret = 0;  /* Text has been scrolled outside Rect */
 	  break;
 	}
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
 
       if (!GameConfig.HogCPU)
 	SDL_Delay(1);
@@ -267,8 +275,8 @@ ScrollText (char *Text, SDL_Rect *rect)
     } /* while 1 */
 
   SDL_BlitSurface (Background, NULL, ne_screen, NULL);
-  SDL_UpdateWindowSurface(FD_GetWindow());
-  SDL_DestroySurface( Background );
+  SDL_Flip (ne_screen);
+  SDL_FreeSurface( Background );
 
   return (ret);
 }				// void ScrollText(void)
@@ -307,9 +315,9 @@ DisplayText (const char *Text, int startx, int starty, const SDL_Rect *clip)
   if ( startx != -1 ) MyCursorX = startx;
   if ( starty != -1 ) MyCursorY = starty;
 
-  SDL_GetSurfaceClipRect (ne_screen, &store_clip);  /* store previous clip-rect */
+  SDL_GetClipRect (ne_screen, &store_clip);  /* store previous clip-rect */
   if (clip)
-    SDL_SetSurfaceClipRect (ne_screen, clip);
+    SDL_SetClipRect (ne_screen, clip);
   else
     {
       clip = & Temp_Clipping_Rect;
@@ -343,7 +351,7 @@ DisplayText (const char *Text, int startx, int starty, const SDL_Rect *clip)
 
     } // while !FensterVoll()
 
-   SDL_SetSurfaceClipRect (ne_screen, &store_clip); /* restore previous clip-rect */
+   SDL_SetClipRect (ne_screen, &store_clip); /* restore previous clip-rect */
 
   /*
    * ScrollText() wants to know if we still wrote something inside the
@@ -469,8 +477,7 @@ GetString (int MaxLen, int echo)
   y0 = MyCursorY;
   height = FontHeight (GetCurrentFont());
 
-  store = SDL_CreateSurface(Screen_Rect.w, height,
-			    SDL_GetPixelFormatForMasks(vid_bpp, 0, 0, 0, 0));
+  store = SDL_CreateRGBSurface(0, Screen_Rect.w, height, vid_bpp, 0, 0, 0, 0);
   Set_Rect (store_rect, x0, y0, Screen_Rect.w, height);
   SDL_BlitSurface (ne_screen, &store_rect, store, NULL);
 
@@ -493,16 +500,12 @@ GetString (int MaxLen, int echo)
   finished = FALSE;
   curpos = 0;
 
-#if !defined ARCADEINPUT
-  SDL_StartTextInput (FD_GetWindow());
-#endif
-
   while ( !finished  )
     {
       Copy_Rect( store_rect, tmp_rect);
       SDL_BlitSurface (store, NULL, ne_screen, &tmp_rect);
       PutString (ne_screen, x0, y0, input);
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
 
 #ifdef ARCADEINPUT
       if ( inputchar < 0 ) inputchar+=(ARCADEINPUTMAX+1); //+1 because we chose (>)1 past the point...
@@ -561,48 +564,26 @@ GetString (int MaxLen, int echo)
  	  if ( curpos > 0 ) curpos --;
         } // (el)ifs Pressed
 #else // NORMAL INPUT
+      key = getchar_raw ();
 
-      while (!finished)
+      if (key == SDLK_RETURN)
 	{
-	  SDL_Event event;
-	  SDL_WaitEvent (&event);
-
-	  if (event.type == SDL_EVENT_TEXT_INPUT)
-	    {
-	      const unsigned char c = (unsigned char)event.text.text[0];
-	      if (c && isprint(c) && (curpos < MaxLen))
-		{
-		  input[curpos] = (char)c;
-		  curpos ++;
-		  if (curpos < MaxLen)
-		    input[curpos] = emptychar;
-		  break;
-		}
-	      continue;
-	    }
-
-	  if (event.type == SDL_EVENT_KEY_DOWN)
-	    {
-	      key = (int)event.key.key;
-	      if ((key == SDLK_RETURN) || (key == SDLK_KP_ENTER))
-		{
-		  input[curpos] = 0;
-		  finished = TRUE;
-		}
-	      else if (key == SDLK_BACKSPACE)
-		{
-		  if ( curpos > 0 ) curpos --;
-		  input[curpos] = emptychar;
-		}
-	      break;
-	    }
+	  input[curpos] = 0;
+	  finished = TRUE;
+	}
+      else if ( (key < SDLK_DELETE) && isprint (key) && (curpos < MaxLen) )
+	{
+	  /* printable characters are entered in string */
+	  input[curpos] = (char) key;
+	  curpos ++;
+	}
+      else if (key == SDLK_BACKSPACE)
+	{
+	  if ( curpos > 0 ) curpos --;
+	  input[curpos] = '.';
 	}
 #endif // ARCADEINPUT
     } /* while(!finished) */
-
-#if !defined ARCADEINPUT
-  SDL_StopTextInput (FD_GetWindow());
-#endif
 
 
   DebugPrintf (2, "\n\nchar *GetString(..):  The final string is:\n");
@@ -644,7 +625,7 @@ putchar_SDL (SDL_Surface *Surface, int x, int y, int c)
 
   ret = PutChar (Surface, x, y, c);
 
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (Surface);
 
   return (ret);
 }
@@ -685,15 +666,7 @@ printf_SDL (SDL_Surface *screen, int x, int y, const char *fmt, ...)
   PutString (screen, x, y, TextBuffer);
   h = FontHeight (GetCurrentFont()) + 2;
 
-  if (screen == ne_screen)
-    {
-      SDL_Rect dst;
-      dst.x = x;
-      dst.y = y;
-      dst.w = textlen;
-      dst.h = h;
-      SDL_UpdateWindowSurfaceRects (FD_GetWindow(), &dst, 1);  // update the relevant line
-    }
+  SDL_UpdateRect (screen, x, y, textlen, h);  // update the relevant line
 
   if (TextBuffer[strlen(TextBuffer)-1] == '\n')
     {

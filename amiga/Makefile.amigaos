@@ -1,0 +1,74 @@
+# Freedroid Classic for AmigaOS 3.x / AmiCradle, 68040 + FPU, on acsdl12.
+#
+#   make -f amiga/Makefile.amigaos STOVE=/path/to/openamigagcc-16.2.0-open4-x86_64-linux \
+#        NDK=/path/to/gfopensdk/OpenNDK/Include_H \
+#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12
+#
+# STOVE is GFOpenAmigaGCC 16.2.0-open4 or later. ACSDL is acsdl12, built with
+# its own Makefile.amigaos (it holds zlib's inflate for the PNGs; nothing
+# here needs ZLIB, which is kept for the ports' common command line).
+# The pictures are amiga/graphics (made from graphics by
+# amiga/tools/convert_gfx.py, in one 256-colour palette, the JPEGs as PNGs);
+# the music is the MODs and the sounds the WAVs of sound/, as they are.
+# Output: build/amigaos/Freedroid/ with the program, graphics/ (and its
+# three theme drawers), sound/, map/, Config/ (options and highscores),
+# ReadMe and COPYING, their icons, and Freedroid.info beside the drawer.
+
+STOVE   ?= $(HOME)/CradleLab/toolchain/openamigagcc-16.2.0-open4-x86_64-linux
+NDK     ?= $(HOME)/CradleLab/gfopensdk/OpenNDK/Include_H
+ACSDL   ?= $(HOME)/CradleLab/guest-sdl/gameports/acsdl12
+ACGAME  ?= $(ACSDL)/../acgame
+ZLIB    ?= $(HOME)/CradleLab/zlib-1.3.1
+CC      = $(STOVE)/bin/m68k-amigaos-gcc
+CPU     ?= -m68040 -m68881
+OPT     ?= -O2 -fomit-frame-pointer
+CFLAGS  = -noixemul -std=gnu99 $(OPT) $(CPU) -Wall -Wno-unused-but-set-variable \
+          -fno-common -DHAVE_CONFIG_H \
+          -Iamiga -Isrc -I$(ACSDL)/include -I$(ACSDL)/include/SDL -I$(ACGAME)/include -I$(NDK)
+LDFLAGS = -noixemul $(CPU)
+BUILD   = build/amigaos
+OUT     = $(BUILD)/Freedroid
+
+SRC     = BFont.c bullet.c enemy.c graphics.c highscore.c influ.c \
+          init.c input.c level_editor.c main.c map.c menu.c misc.c ship.c \
+          sound.c takeover.c text.c view.c
+AMIGA   = amiga_fd.c stack.c
+OBJS    = $(SRC:%.c=$(BUILD)/%.o) $(AMIGA:%.c=$(BUILD)/amiga_%.o)
+THEMES  = classic lanzz para90
+ICONS   = amiga/icons
+
+all: $(OUT)/freedroid data
+
+$(OUT)/freedroid: $(OBJS) | $(OUT)
+	$(CC) $(LDFLAGS) -o $@ $^ $(ACSDL)/build/amigaos/libacsdl12.a -lm
+
+# The data, and an icon for every drawer: graphics, sound, map and Config
+# have their own; each theme drawer inside graphics gets graphics.info,
+# which has no place of its own, so Workbench places it.
+data: | $(OUT)
+	rm -rf $(OUT)/graphics $(OUT)/sound $(OUT)/map
+	cp -r amiga/graphics $(OUT)/graphics
+	for t in $(THEMES); do cp $(ICONS)/graphics.info $(OUT)/graphics/$${t}_theme.info; done
+	mkdir -p $(OUT)/sound $(OUT)/map $(OUT)/Config
+	cp sound/*.wav sound/*.mod $(OUT)/sound/
+	cp map/Paradroid.* map/freedroid.ruleset $(OUT)/map/
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp COPYING $(OUT)/COPYING
+	cp $(ICONS)/freedroid.info $(ICONS)/ReadMe.info $(ICONS)/COPYING.info \
+	   $(ICONS)/graphics.info $(ICONS)/sound.info $(ICONS)/map.info \
+	   $(ICONS)/Config.info $(OUT)/
+	cp $(ICONS)/drawer.info $(BUILD)/Freedroid.info
+
+$(BUILD)/%.o: src/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/amiga_%.o: amiga/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD) $(OUT):
+	mkdir -p $@
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all data clean

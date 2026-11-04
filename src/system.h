@@ -28,9 +28,6 @@
  *           and take into account the AC-defined conditionals
  */
 
-#ifndef _system_h
-#define _system_h
-
 #include "config.h"
 
 #include <stdio.h>
@@ -79,22 +76,20 @@
 #include <dirent.h>
 #endif
 
-#include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
-#include <SDL3_mixer/SDL_mixer.h>
+#include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
+#ifdef __amigaos__
+#include "amiga_fd.h"
+#else
+#include <SDL/SDL_rotozoom.h>
+#endif
 
-#include "sdl_compat.h"
-
-#define SDL_MapRGB(format, r, g, b) SDL_MapRGB(SDL_GetPixelFormatDetails(format), NULL, r, g, b)
-#define SDL_MapRGBA(format, r, g, b, a) SDL_MapRGBA(SDL_GetPixelFormatDetails(format), NULL, r, g, b, a)
-#define SDL_GetRGB(pixel, format, r, g, b) SDL_GetRGB(pixel, SDL_GetPixelFormatDetails(format), NULL, r, g, b)
-#define SDL_GetRGBA(pixel, format, r, g, b, a) SDL_GetRGBA(pixel, SDL_GetPixelFormatDetails(format), NULL, r, g, b, a)
-#define IMG_GetError SDL_GetError
+#ifdef HAVE_LIBSDL_MIXER
+#include <SDL/SDL_mixer.h>
+#endif
 
 #ifdef GCW0
 #ifndef ARCADEINPUT
 #define ARCADEINPUT
 #endif
-#endif
-
 #endif

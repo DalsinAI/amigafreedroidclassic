@@ -44,6 +44,7 @@
 // ----- global variables --------------------
 extern int key_cmds[CMD_LAST][3];
 extern char *cmd_strings[CMD_LAST];
+extern char *keystr[INPUT_LAST];
 
 
 SDL_Surface *Menu_Background = NULL;
@@ -537,7 +538,7 @@ const char *handle_LE_SizeX ( MenuAction_t action )
   int row;
   for ( row = 0 ; row < CurLevel->ylen ; row++ )
     {
-      CurLevel->map[row] = MyRealloc( CurLevel->map[row], newmem );
+      CurLevel->map[row] = realloc( CurLevel->map[row], newmem );
       if ( CurLevel->map[row] == NULL ) {
         DebugPrintf ( 0, "Failed to re-allocate to %z bytes in map row %d\n", newmem, row );
         Terminate(ERR);
@@ -562,7 +563,7 @@ const char *handle_LE_SizeY ( MenuAction_t action )
   menuChangeInt ( action, &(CurLevel->ylen), 1, 0, MAX_MAP_ROWS-1 );
   if ( oldylen > CurLevel->ylen )
     {
-      MyFree ( CurLevel->map[oldylen - 1] );
+      free ( CurLevel->map[oldylen - 1] );
       CurLevel->map[oldylen - 1] = NULL;
     }
   else if ( oldylen < CurLevel->ylen )
@@ -584,8 +585,8 @@ const char *handle_LE_Name ( MenuAction_t action )
   if ( action == ACTION_CLICK )
     {
       DisplayText ("New level name: ", Menu_Rect.x-2*fheight, Menu_Rect.y - 3*fheight, &Full_User_Rect );
-      SDL_UpdateWindowSurface(FD_GetWindow());
-      MyFree ( CurLevel->Levelname );
+      SDL_Flip( ne_screen );
+      free ( CurLevel->Levelname );
       CurLevel->Levelname = GetString(15, 2);
       InitiateMenu (FALSE);
     }
@@ -602,8 +603,8 @@ const char *handle_LE_Music ( MenuAction_t action )
   if ( action == ACTION_CLICK )
     {
       DisplayText ("Music filename: ", Menu_Rect.x - 2*fheight, Menu_Rect.y - 3*fheight, &Full_User_Rect);
-      SDL_UpdateWindowSurface(FD_GetWindow());
-      MyFree ( CurLevel->Background_Song_Name );
+      SDL_Flip( ne_screen );
+      free ( CurLevel->Background_Song_Name );
       CurLevel->Background_Song_Name = GetString(20, 2);
       Switch_Background_Music_To ( CurLevel->Background_Song_Name );
     }
@@ -633,7 +634,7 @@ const char *handle_LE_SaveShip ( MenuAction_t action )
       char output[512];
       snprintf ( output, sizeof(output)-1, "Ship saved as '%s'", fname );
       CenteredPutString (ne_screen, 3*FontHeight(Menu_BFont), output );
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip ( ne_screen );
       wait_for_key_pressed();
       InitiateMenu (FALSE);
     }
@@ -686,7 +687,7 @@ const char *handle_QuitGame ( MenuAction_t action )
   int text_x = User_Rect.x + (User_Rect.w - text_width)/2;
   int text_y = User_Rect.y + (User_Rect.h - fheight)/2;
   PutString (ne_screen, text_x, text_y, quit_string);
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
 #ifdef GCW0
   while ( (!Gcw0AnyButtonPressed()) ) SDL_Delay(1);
@@ -740,7 +741,7 @@ InitiateMenu (bool with_droids)
   //
   Activate_Conservative_Frame_Computation();
 
-  SDL_SetSurfaceClipRect( ne_screen, NULL );
+  SDL_SetClipRect( ne_screen, NULL );
   Me.status=MENU;
   ClearGraphMem();
   DisplayBanner (NULL, NULL,  BANNER_NO_SDL_UPDATE | BANNER_FORCE_UPDATE );
@@ -749,13 +750,13 @@ InitiateMenu (bool with_droids)
   else
     Assemble_Combat_Picture (ONLY_SHOW_MAP);
 
-  SDL_SetSurfaceClipRect( ne_screen, NULL );
+  SDL_SetClipRect( ne_screen, NULL );
   MakeGridOnScreen( NULL );
 
-  if (Menu_Background) SDL_DestroySurface (Menu_Background);
-  Menu_Background = SDL_ConvertSurface (ne_screen, ne_screen->format);  // keep a global copy of background
+  if (Menu_Background) SDL_FreeSurface (Menu_Background);
+  Menu_Background = SDL_DisplayFormat (ne_screen);  // keep a global copy of background
 
-  SDL_HideCursor ();  // deactivate mouse-cursor in menus
+  SDL_ShowCursor (SDL_DISABLE);  // deactivate mouse-cursor in menus
   SetCurrentFont ( Menu_BFont );
   fheight = FontHeight (GetCurrentFont()) + 2;
 
@@ -910,12 +911,12 @@ ShowMenu ( const MenuEntry_t MenuEntries[] )
             }
           PutInfluence (influ_x, menu_y + (menu_pos - 0.5) * fheight);
 #ifndef ANDROID
-          SDL_UpdateWindowSurface(FD_GetWindow());
+          SDL_Flip( ne_screen );
 #endif
           need_update = FALSE;
         }
 #ifdef ANDROID
-      SDL_UpdateWindowSurface(FD_GetWindow());	// for responsive input on Android, we need to run this every cycle
+      SDL_Flip( ne_screen );	// for responsive input on Android, we need to run this every cycle
 #endif
       action = getMenuAction( 250 );
 
@@ -997,7 +998,7 @@ ShowMenu ( const MenuEntry_t MenuEntries[] )
     } // while !finished
 
   ClearGraphMem();
-  SDL_ShowCursor ();  // reactivate mouse-cursor for game
+  SDL_ShowCursor ( SDL_ENABLE );  // reactivate mouse-cursor for game
   // Since we've faded out the whole scren, it can't hurt
   // to have the top status bar redrawn...
   BannerIsDestroyed = TRUE;
@@ -1029,7 +1030,7 @@ ShowCredits (void)
   em = CharWidth (Menu_BFont, 'm');
 
   Copy_Rect (Screen_Rect, screen);
-  SDL_SetSurfaceClipRect( ne_screen, NULL );
+  SDL_SetClipRect( ne_screen, NULL );
   DisplayImage ( find_file(CREDITS_PIC_FILE, GRAPHICS_DIR, NO_THEME, CRITICAL));
   MakeGridOnScreen (&screen);
 
@@ -1074,7 +1075,7 @@ ShowCredits (void)
   printf_SDL (ne_screen, col2, -1, "Android");
 
 
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip( ne_screen );
 
   wait_for_key_pressed();
 
@@ -1215,13 +1216,13 @@ Display_Key_Config (int selx, int sely)
   for (i=0; i < CMD_LAST; i++)
     {
       PrintStringFont (ne_screen, Font0_BFont,  startx, starty+(posy)*lheight, cmd_strings[i]);
-      PrintStringFont (ne_screen, PosFont(1,1+i), col1, starty+(posy)*lheight, GetKeyString(key_cmds[i][0]));
-      PrintStringFont (ne_screen, PosFont(2,1+i), col2, starty+(posy)*lheight, GetKeyString(key_cmds[i][1]));
-      PrintStringFont (ne_screen, PosFont(3,1+i), col3, starty+(posy)*lheight, GetKeyString(key_cmds[i][2]));
+      PrintStringFont (ne_screen, PosFont(1,1+i), col1, starty+(posy)*lheight, keystr[key_cmds[i][0]]);
+      PrintStringFont (ne_screen, PosFont(2,1+i), col2, starty+(posy)*lheight, keystr[key_cmds[i][1]]);
+      PrintStringFont (ne_screen, PosFont(3,1+i), col3, starty+(posy)*lheight, keystr[key_cmds[i][2]]);
       posy ++;
     }
 
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip( ne_screen );
 
   return;
 } // Display_Key_Config
@@ -1295,7 +1296,7 @@ Cheatmenu (void)
 	  printf_SDL (ne_screen, -1, -1, "New zoom factor: ");
 	  input = GetString (40, 2);
 	  sscanf (input, "%f", &CurrentCombatScaleFactor);
-	  MyFree (input);
+	  free (input);
 	  SetCombatScaleTo (CurrentCombatScaleFactor);
 	  break;
 
@@ -1393,7 +1394,7 @@ Cheatmenu (void)
 	  printf_SDL (ne_screen, x0, y0, "Enter Level, X, Y: ");
 	  input = GetString (40, 2);
 	  sscanf (input, "%d, %d, %d\n", &LNum, &X, &Y);
-	  MyFree (input);
+	  free (input);
 	  Teleport (LNum, X, Y);
 	  break;
 
@@ -1420,7 +1421,7 @@ Cheatmenu (void)
 	      printf_SDL (ne_screen, x0, y0+20, "You are now a %s. Have fun!\n", input);
 	      getchar_raw ();
 	    }
-	  MyFree (input);
+	  free (input);
 	  break;
 
 	case 'i': /* togge Invincible mode */
@@ -1433,7 +1434,7 @@ Cheatmenu (void)
 	  printf_SDL (ne_screen, -1, -1, "Enter your new energy: ");
 	  input = GetString (40, 2);
 	  sscanf (input, "%d", &num);
-	  MyFree (input);
+	  free (input);
 	  Me.energy = (float) num;
 	  if (Me.energy > Me.health) Me.health = Me.energy;
 	  break;
@@ -1450,7 +1451,7 @@ Cheatmenu (void)
 	  printf_SDL (ne_screen, -1, -1, "\nLevelnum: ");
 	  input = GetString (40, 2);
 	  sscanf (input, "%d", &LNum);
-	  MyFree (input);
+	  free (input);
 	  ShowDeckMap ();
 	  getchar_raw ();
 	  break;
@@ -1500,7 +1501,7 @@ Cheatmenu (void)
 void
 FreeMenuData ( void )
 {
-  SDL_DestroySurface (Menu_Background);
+  SDL_FreeSurface (Menu_Background);
   return;
 }
 #undef _menu_c

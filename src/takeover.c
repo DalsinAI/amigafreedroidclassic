@@ -161,7 +161,7 @@ Takeover (int enemynum)
 
   Me.status = MOBILE; /* the new status _after_ the takeover game */
 
-  SDL_HideCursor (); // no mouse-cursor in takeover game!
+  SDL_ShowCursor (SDL_DISABLE); // no mouse-cursor in takeover game!
 
   show_droid_info ( Me.type, -1 , 0);
   show_droid_portrait (Cons_Droid_Rect, Me.type, DROID_ROTATION_TIME, UPDATE);
@@ -208,7 +208,7 @@ Takeover (int enemynum)
       InventPlayground ();
 
       ShowPlayground ();
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
 
       ChooseColor ();
       wait_for_all_keys_released();
@@ -279,13 +279,13 @@ Takeover (int enemynum)
 
       DisplayBanner (message, NULL , 0 );
       ShowPlayground ();
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
 
       wait_for_all_keys_released();
       now = SDL_GetTicks();
       while ((!FirePressedR()) && (SDL_GetTicks() - now < SHOW_WAIT) ) {
 #ifdef ANDROID
-        SDL_UpdateWindowSurface(FD_GetWindow());
+        SDL_Flip(ne_screen);
 #endif
         SDL_Delay(1);
       }
@@ -316,7 +316,6 @@ ChooseColor (void)
 {
   int countdown = 100;  /* duration in 1/10 seconds given for color choosing */
   int ColorChosen = FALSE;
-  int WaitForFreshConfirm = TRUE;
   char count_text[80];
 
   Uint32 prev_count_tick, count_tick_len;
@@ -348,11 +347,7 @@ ChooseColor (void)
         OpponentColor = VIOLETT;
       }
 
-      if (!FirePressed()) {
-        WaitForFreshConfirm = FALSE;
-      }
-
-      if ( (action & ACTION_CLICK) && !WaitForFreshConfirm ) {
+      if ( action & ACTION_CLICK ) {
         ColorChosen = TRUE;
       }
 
@@ -371,7 +366,7 @@ ChooseColor (void)
       if (countdown == 0)
 	ColorChosen = TRUE;
 
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
       SDL_Delay(1); // don't hog CPU
     } /* while(!ColorChosen) */
 
@@ -489,7 +484,7 @@ PlayGame (void)
           ShowPlayground ();
 	} // if do_update_move
 
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
       SDL_Delay(1);
     }	/* while !FinishTakeover */
 
@@ -517,7 +512,7 @@ PlayGame (void)
       ProcessDisplayColumn ();
       ShowPlayground ();
       SDL_Delay(1);
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip (ne_screen);
     }	/* while (countdown) */
 
   wait_for_all_keys_released();
@@ -670,9 +665,9 @@ ShowPlayground (void)
   xoffs = Classic_User_Rect.x;
   yoffs = Classic_User_Rect.y;
 
-  //  SDL_SetSurfaceColorKey (ne_screen, 0, 0);
-  //  SDL_SetSurfaceClipRect (ne_screen , &User_Rect);
-  SDL_SetSurfaceClipRect (ne_screen , NULL);
+  //  SDL_SetColorKey (ne_screen, 0, 0);
+  //  SDL_SetClipRect (ne_screen , &User_Rect);
+  SDL_SetClipRect (ne_screen , NULL);
 
   //  Fill_Rect (User_Rect, to_bg_color);
   SDL_BlitSurface (takeover_bg_pic, &User_Rect, ne_screen, &User_Rect);

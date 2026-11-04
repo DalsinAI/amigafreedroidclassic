@@ -265,7 +265,7 @@ LoadShip (char *filename)
   Buffer = ReadAndMallocStringFromData (ShipData, AREA_NAME_STRING, "\"");
   strncpy (curShip.AreaName, Buffer, 99);
   curShip.AreaName[99]='\0';
-  MyFree (Buffer);
+  free (Buffer);
 
   //--------------------
   // Now we count the number of levels and remember their start-addresses.
@@ -299,7 +299,7 @@ LoadShip (char *filename)
       InterpretMap (curShip.AllLevels[i]); // initialize doors, refreshes and lifts
     }
 
-  MyFree (ShipData);
+  free (ShipData);
 
   return OK;
 
@@ -505,7 +505,7 @@ freedroid-discussion@lists.sourceforge.net\n\
       LevelMem = StructToMem(curShip.AllLevels[array_num]);
       fwrite(LevelMem, strlen(LevelMem), sizeof(char), ShipFile);
 
-      MyFree(LevelMem);
+      free(LevelMem);
     }
 
   //--------------------
@@ -967,7 +967,7 @@ GetLiftConnections (char *filename)
 {
   char *fpath;
   char *Data;
-  const char *EntryPointer;
+  char *EntryPointer;
   int i;
   int Label;
   int DeckIndex;
@@ -1079,7 +1079,7 @@ GetLiftConnections (char *filename)
 
   curShip.num_lifts = Label;
 
-  MyFree ( Data );
+  free ( Data );
   return OK;
 }; // int GetLiftConnections(char *shipname)
 
@@ -1153,7 +1153,7 @@ GetCrew (char *filename)
       NumEnemys++;
     }
 
-  MyFree ( MainDroidsFilePointer );
+  free ( MainDroidsFilePointer );
   return (OK);
 } /* GetCrew () */
 
@@ -1170,7 +1170,7 @@ GetThisLevelsDroids( const char* SectionPointer )
 {
   int OurLevelNumber;
   const char* SearchPointer;
-  const char* EndOfThisLevelData;
+  char* EndOfThisLevelData;
   int MaxRand;
   int MinRand;
   int RealNumberOfRandomDroids;
@@ -1189,6 +1189,7 @@ GetThisLevelsDroids( const char* SectionPointer )
   // printf("\nReceived another levels droid section for decoding. It reads: %s " , SectionPointer );
 
   EndOfThisLevelData = LocateStringInData ( SectionPointer , DROIDS_LEVEL_END_INDICATION_STRING );
+  EndOfThisLevelData[0]=0;
 
   // Now we read in the level number for this level
   ReadValueFromString (SectionPointer, DROIDS_LEVEL_INDICATION_STRING, "%d", &OurLevelNumber);
@@ -1201,9 +1202,7 @@ GetThisLevelsDroids( const char* SectionPointer )
 
   DifferentRandomTypes=0;
   SearchPointer = SectionPointer;
-  while ( SearchPointer < EndOfThisLevelData &&
-	  ( SearchPointer = strstr ( SearchPointer , ALLOWED_TYPE_INDICATION_STRING)) != NULL &&
-	  SearchPointer < EndOfThisLevelData)
+  while ( ( SearchPointer = strstr ( SearchPointer , ALLOWED_TYPE_INDICATION_STRING)) != NULL)
     {
       SearchPointer += strlen ( ALLOWED_TYPE_INDICATION_STRING );
       strncpy( TypeIndicationString , SearchPointer , 3 ); // Every type is 3 characters long
@@ -1601,7 +1600,6 @@ IsPassable (float x, float y, int Checkpos)
 	  ret = CENTER;
 	  break;
 	}
-      /* fall through */
     case H_HALBTUERE1:
     case H_ZUTUERE:
       if (Checkpos == LIGHT)
@@ -1667,7 +1665,6 @@ IsPassable (float x, float y, int Checkpos)
 	  ret = CENTER;
 	  break;
 	}
-      /* fall through */
     case V_HALBTUERE1:
     case V_ZUTUERE:
       if (Checkpos == LIGHT)
@@ -1797,13 +1794,13 @@ FreeLevelMemory ( level* lvl )
     return;
   }
 
-  MyFree ( lvl->Levelname );
-  MyFree ( lvl->Background_Song_Name );
-  MyFree ( lvl->Level_Enter_Comment );
+  free ( lvl->Levelname );
+  free ( lvl->Background_Song_Name );
+  free ( lvl->Level_Enter_Comment );
 
   int row;
   for ( row = 0; row < lvl->ylen; row ++ ) {
-    MyFree ( lvl->map[row] );
+    free ( lvl->map[row] );
   }
   return;
 }
@@ -1814,7 +1811,7 @@ FreeShipMemory ( void )
   int i;
   for (i = 0; i < curShip.num_levels; i++) {
     FreeLevelMemory ( curShip.AllLevels[i] );
-    MyFree ( curShip.AllLevels[i] );
+    free ( curShip.AllLevels[i] );
   }
 
   return;

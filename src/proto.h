@@ -135,7 +135,6 @@ EXTERN void putpixel(SDL_Surface *surface, int x, int y, Uint32 pixel);
 EXTERN void white_noise (SDL_Surface *bitmap, SDL_Rect *rect, int timeout);
 EXTERN void ScaleGraphics (float scale);
 EXTERN void ScalePic (SDL_Surface **pic, float scale);
-EXTERN SDL_Surface *RotateSurfaceNearest (SDL_Surface *src, float angle);
 EXTERN void ScaleStatRects (float scale);
 EXTERN void toggle_fullscreen (void);
 EXTERN SDL_Surface *Load_Block (char *fpath, int line, int col, SDL_Rect * block, int flags);
@@ -182,7 +181,6 @@ EXTERN void Init_Audio(void);
 EXTERN void Set_BG_Music_Volume(float);
 EXTERN void Set_Sound_FX_Volume(float);
 EXTERN void Switch_Background_Music_To ( const char * filename_raw );
-EXTERN void Stop_Background_Music(void);
 EXTERN void Play_Sound (int);
 EXTERN void GotHitSound (void);
 EXTERN void GotIntoBlastSound (void);
@@ -238,7 +236,6 @@ EXTERN bool NoDirectionPressed (void);
 EXTERN bool cmd_is_active(enum _cmds cmd);
 EXTERN bool cmd_is_activeR(enum _cmds cmd);
 EXTERN void init_keystr (void);
-EXTERN const char *GetKeyString (int key);
 
 /* menu.c */
 #undef EXTERN
@@ -273,7 +270,7 @@ EXTERN char* ReadAndMallocStringFromData ( const char* SearchString , const char
 EXTERN int CountStringOccurences ( const char* SearchString , const char* TargetString ) ;
 EXTERN void ReadValueFromString(const char* data, const char* label, const char* FormatString, void* dst);
 EXTERN char* ReadAndMallocAndTerminateFile( const char* filename , const char* File_End_String ) ;
-EXTERN const char* LocateStringInData ( const char* SearchBeginPointer, const char* SearchTextPointer ) ;
+EXTERN char* LocateStringInData ( const char* SearchBeginPointer, const char* SearchTextPointer ) ;
 EXTERN char* find_file (const char *fname, const char *subdir, int use_theme, int critical);
 EXTERN void CheckForTriggeredEvents ( void );
 EXTERN void Pause (void);
@@ -287,15 +284,7 @@ EXTERN int MyRandom (int);
 EXTERN void Armageddon (void);
 EXTERN void Teleport (int LNum, int X, int Y);
 EXTERN void Terminate (int);
-EXTERN void *MyMallocLong (long, const char *, int);
-EXTERN void *MyCallocLong (size_t, size_t, const char *, int);
-EXTERN void *MyReallocLong (void *, size_t, const char *, int);
-EXTERN void MyFreeLong (void *, const char *, int);
-EXTERN void MyCheckMemoryLeaks (void);
-#define MyMalloc(n) MyMallocLong((n), __FILE__, __LINE__)
-#define MyCalloc(m, n) MyCallocLong((m), (n), __FILE__, __LINE__)
-#define MyRealloc(p, n) MyReallocLong((p), (n), __FILE__, __LINE__)
-#define MyFree(p) MyFreeLong((p), __FILE__, __LINE__)
+EXTERN void *MyMalloc (long);
 EXTERN size_t FS_filelength (FILE *f);
 EXTERN void init_progress (const char *txt);
 EXTERN void update_progress (int percent);

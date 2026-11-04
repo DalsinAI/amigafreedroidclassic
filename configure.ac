@@ -1,5 +1,8 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(freedroid, 1.9.0)
+AC_INIT(freedroid, 1.2.4)
+
+dnl Setup for automake
+SDL_VERSION=1.2.3
 
 dnl Detect the canonical host and target build environment
 
@@ -9,24 +12,12 @@ AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE
 ##AM_MAINTAINER_MODE
 
-AC_CONFIG_HEADERS([config.h])
+AM_CONFIG_HEADER(config.h)
 
 # Checks for programs.
 #AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_MAKE_SET
-PKG_PROG_PKG_CONFIG
-
-AC_ARG_WITH([sdl-prefix],
-	AS_HELP_STRING([--with-sdl-prefix=DIR], [Prefix containing SDL3 pkgconfig files (adds DIR/lib/pkgconfig to PKG_CONFIG_PATH)]),
-	[fd_sdl_prefix="$withval"],
-	[fd_sdl_prefix=""])
-
-if test "x$fd_sdl_prefix" != "x"; then
-	PKG_CONFIG_PATH="$fd_sdl_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
-	export PKG_CONFIG_PATH
-	AC_MSG_NOTICE([Using SDL pkg-config prefix: $fd_sdl_prefix])
-fi
 
 AM_PROG_CC_C_O
 
@@ -43,16 +34,21 @@ if test x$have_x = xyes; then
 	CFLAGS="$CFLAGS $X_CFLAGS"
 fi
 
-## Check for SDL3
-AC_MSG_NOTICE([[Checking for compulsory SDL3 libraries:]])
+## Check for SDL
+AC_MSG_NOTICE([[Checking for compulsory SDL libraries:]])
 
-PKG_CHECK_MODULES([SDL3], [sdl3],,
-	AC_MSG_ERROR([*** SDL3 not found!]))
-PKG_CHECK_MODULES([SDL3_IMAGE], [sdl3-image],,
-	AC_MSG_ERROR([*** SDL3_image not found!]))
+AM_PATH_SDL($SDL_VERSION,
+            :,
+	    AC_MSG_ERROR([*** SDL version $SDL_VERSION not found!])
+)
+CFLAGS="$CFLAGS $SDL_CFLAGS"
+LIBS="$LIBS $SDL_LIBS"
 
-CFLAGS="$CFLAGS $SDL3_CFLAGS $SDL3_IMAGE_CFLAGS"
-LIBS="$LIBS $SDL3_LIBS $SDL3_IMAGE_LIBS"
+AC_CHECK_LIB([SDL], [SDL_Init],, AC_MSG_ERROR([
+--------------------------------------------------
+SDL library needed for Freedroid!
+see http://www.libsdl.org/
+--------------------------------------------------]))
 
 AC_CHECK_LIB([jpeg], [jpeg_start_compress],,AC_MSG_ERROR([
 --------------------------------------------------
@@ -73,12 +69,26 @@ libpng needed to run Freedroid
 see http://www.libpng.org/pub/png/libpng.html
 --------------------------------------------------]))
 
-AC_MSG_NOTICE([[Checking for required SDL3 libraries:]])
-PKG_CHECK_MODULES([SDL3_MIXER], [sdl3-mixer],,
-	AC_MSG_ERROR([*** SDL3_mixer not found!]))
+AC_CHECK_LIB([SDL_image], [IMG_LoadJPG_RW],, AC_MSG_ERROR([
+--------------------------------------------------
+SDL_image library needed for Freedroid!
+see http://www.libsdl.org/
+--------------------------------------------------]))
 
-CFLAGS="$CFLAGS $SDL3_MIXER_CFLAGS"
-LIBS="$LIBS $SDL3_MIXER_LIBS"
+AC_CHECK_LIB([SDL_gfx], [zoomSurface],, AC_MSG_ERROR([
+--------------------------------------------------
+SDL_gfx needed to run Freedroid
+see http://sourceforge.net/projects/sdlgfx/
+--------------------------------------------------]))
+
+AC_MSG_NOTICE([[Checking for optional SDL libraries:]])
+AC_CHECK_LIB([SDL_mixer], [Mix_OpenAudio],, AC_MSG_WARN([
+--------------------------------------------------
+libSDL_mixer not found!
+you need the SDL_mixer library if you want sound!
+(see see http://www.libsdl.org/)
+--> compiling without sound support
+--------------------------------------------------]))
 
 AC_CHECK_LIB([vorbis], [main],, AC_MSG_WARN([
 --------------------------------------------------
@@ -89,13 +99,16 @@ Freedroid to be able to play Ogg files (e.g. the Intro theme)
 
 
 # Checks for header files.
+AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h sys/ioctl.h sys/time.h time.h unistd.h dirent.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
+AC_HEADER_TIME
 
 # Checks for library functions.
+AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([memset sqrt strstr strtok strcspn strspn rand])
 
 dnl Don't Check for getopt_long
