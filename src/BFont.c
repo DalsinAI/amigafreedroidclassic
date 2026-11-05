@@ -67,17 +67,8 @@ InitFont (BFont_Info * Font)
 
   Font->h = Font->Surface->h;
 
-  if (SDL_GetPixelFormatDetails(Font->Surface->format)->Amask != 0)
-    {
-      SDL_SetSurfaceColorKey (Font->Surface, 0, 0);
-      SDL_SetSurfaceBlendMode (Font->Surface, SDL_BLENDMODE_BLEND);
-      SDL_SetSurfaceAlphaMod (Font->Surface, 255);
-    }
-  else
-    {
-      SDL_SetSurfaceColorKey (Font->Surface, SDL_SRCCOLORKEY,
-		       GetPixel (Font->Surface, 0, Font->Surface->h - 1));
-    }
+  SDL_SetColorKey (Font->Surface, SDL_SRCCOLORKEY,
+		   GetPixel (Font->Surface, 0, Font->Surface->h - 1));
 }
 
 
@@ -115,7 +106,7 @@ LoadFont (char *filename, float scale)
 	  else
 	    {
 	      /* free memory allocated for the BFont_Info structure */
-	      MyFree (Font);
+	      free (Font);
 	      Font = NULL;
 	    }
 	}
@@ -128,8 +119,8 @@ LoadFont (char *filename, float scale)
 void
 FreeFont (BFont_Info * Font)
 {
-  SDL_DestroySurface (Font->Surface);
-  MyFree (Font);
+  SDL_FreeSurface (Font->Surface);
+  free (Font);
 }
 
 BFont_Info *
@@ -145,7 +136,7 @@ SetFontColor (BFont_Info * Font, Uint8 r, Uint8 g, Uint8 b)
   Uint8 new_r, new_g, new_b;
   Uint32 color_key;
 
-  newfont = (BFont_Info *) MyMalloc (sizeof (BFont_Info));
+  newfont = (BFont_Info *) malloc (sizeof (BFont_Info));
   if (newfont != NULL)
     {
 
@@ -160,7 +151,8 @@ SetFontColor (BFont_Info * Font, Uint8 r, Uint8 g, Uint8 b)
 	}
 
       surface =
-	SDL_ConvertSurface (Font->Surface, Font->Surface->format);
+	SDL_ConvertSurface (Font->Surface, Font->Surface->format,
+			    Font->Surface->flags);
       if (surface != NULL)
 	{
 
@@ -200,16 +192,7 @@ SetFontColor (BFont_Info * Font, Uint8 r, Uint8 g, Uint8 b)
 	  if (SDL_MUSTLOCK (Font->Surface))
 	    SDL_UnlockSurface (Font->Surface);
 
-	  if (SDL_GetPixelFormatDetails(surface->format)->Amask != 0)
-	    {
-	      SDL_SetSurfaceColorKey (surface, 0, 0);
-	      SDL_SetSurfaceBlendMode (surface, SDL_BLENDMODE_BLEND);
-	      SDL_SetSurfaceAlphaMod (surface, 255);
-	    }
-	  else
-	    {
-	      SDL_SetSurfaceColorKey (surface, SDL_SRCCOLORKEY, color_key);
-	    }
+	  SDL_SetColorKey (surface, SDL_SRCCOLORKEY, color_key);
 	}
 
       newfont->Surface = surface;
@@ -263,18 +246,18 @@ PutChar (SDL_Surface * Surface, int x, int y, int c)
 int
 PutCharFont (SDL_Surface * Surface, BFont_Info * Font, int x, int y, int c)
 {
-  int r;
+  int r = 0;
   SDL_Rect dest;
 
-  r = CharWidth (Font, c);
-  dest.w = r;
-  dest.h = Font->Chars[c].h;
+  dest.w = CharWidth (Font, ' ');
+  dest.h = FontHeight (Font);
   dest.x = x;
   dest.y = y;
   if (c != ' ')
     {
       SDL_BlitSurface (Font->Surface, &Font->Chars[c], Surface, &dest);
     }
+  r = dest.w;
   return r;
 }
 
@@ -320,7 +303,7 @@ TextWidthFont (BFont_Info * Font, const char *text)
 int
 count (const char *text)
 {
-  const char *p = NULL;
+  char *p = NULL;
   int pos = -1;
   int i = 0;
   /* Calculate the space occupied by the text without spaces */
@@ -348,7 +331,7 @@ JustifiedPutStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
   int dif;
 
   char *strtmp;
-  const char *p;
+  char *p;
   int pos = -1;
   int xpos = 0;
 
@@ -377,7 +360,7 @@ JustifiedPutStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
 	      p = strstr (&text[pos + 1], " ");
 	      strtmp = NULL;
 	      strtmp =
-		(char *) MyCalloc ((p - &text[pos + 1]) + 1, sizeof (char));
+		(char *) calloc ((p - &text[pos + 1]) + 1, sizeof (char));
 	      if (strtmp != NULL)
 		{
 		  strncpy (strtmp, &text[pos + 1], (p - &text[pos + 1]));
@@ -393,19 +376,19 @@ JustifiedPutStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
 		    }
 		  pos = p - text;
 		  spaces--;
-		  MyFree (strtmp);
+		  free (strtmp);
 		}
 	    }
 	  strtmp = NULL;
           size_t len = strlen (&text[pos + 1]) + 1;
 	  strtmp =
-	    (char *) MyCalloc (len, sizeof (char));
+	    (char *) calloc (len, sizeof (char));
 
 	  if (strtmp != NULL)
 	    {
 	      memcpy (strtmp, &text[pos + 1], len);
 	      PutStringFont (Surface, Font, xpos, y, strtmp);
-	      MyFree (strtmp);
+	      free (strtmp);
 	    }
 	}
     }
@@ -467,7 +450,7 @@ PrintString (SDL_Surface * Surface, int x, int y, const char *fmt, ...)
 
       PutStringFont (Surface, CurrentFont, x, y, temp);
 
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -484,7 +467,7 @@ PrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int x, int y,
     {
       vsprintf (temp, fmt, args);
       PutStringFont (Surface, Font, x, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -500,7 +483,7 @@ CenteredPrintString (SDL_Surface * Surface, int y, const char *fmt, ...)
     {
       vsprintf (temp, fmt, args);
       CenteredPutString (Surface, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -517,7 +500,7 @@ CenteredPrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
     {
       vsprintf (temp, fmt, args);
       CenteredPutStringFont (Surface, Font, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 
@@ -534,7 +517,7 @@ RightPrintString (SDL_Surface * Surface, int y, const char *fmt, ...)
     {
       vsprintf (temp, fmt, args);
       RightPutString (Surface, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -551,7 +534,7 @@ RightPrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
     {
       vsprintf (temp, fmt, args);
       RightPutStringFont (Surface, Font, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -567,7 +550,7 @@ LeftPrintString (SDL_Surface * Surface, int y, const char *fmt, ...)
     {
       vsprintf (temp, fmt, args);
       LeftPutString (Surface, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -584,7 +567,7 @@ LeftPrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
     {
       vsprintf (temp, fmt, args);
       LeftPutStringFont (Surface, Font, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -600,7 +583,7 @@ JustifiedPrintString (SDL_Surface * Surface, int y, const char *fmt, ...)
     {
       vsprintf (temp, fmt, args);
       JustifiedPutString (Surface, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -617,7 +600,7 @@ JustifiedPrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
     {
       vsprintf (temp, fmt, args);
       JustifiedPutStringFont (Surface, Font, y, temp);
-      MyFree (temp);
+      free (temp);
     }
   va_end (args);
 }
@@ -630,7 +613,7 @@ JustifiedPrintStringFont (SDL_Surface * Surface, BFont_Info * Font, int y,
 void
 PutPixel (SDL_Surface * surface, int x, int y, Uint32 pixel)
 {
-  int bpp = SDL_BYTESPERPIXEL(surface->format);
+  int bpp = surface->format->BytesPerPixel;
   /* Here p is the address to the pixel we want to set */
   Uint8 *p = (Uint8 *) surface->pixels + y * surface->pitch + x * bpp;
 
@@ -641,10 +624,7 @@ PutPixel (SDL_Surface * surface, int x, int y, Uint32 pixel)
       break;
 
     case 2:
-      {
-        Uint16 pixel16 = (Uint16) pixel;
-        memcpy (p, &pixel16, sizeof (pixel16));
-      }
+      *(Uint16 *) p = pixel;
       break;
 
     case 3:
@@ -663,7 +643,7 @@ PutPixel (SDL_Surface * surface, int x, int y, Uint32 pixel)
       break;
 
     case 4:
-      memcpy (p, &pixel, sizeof (pixel));
+      *(Uint32 *) p = pixel;
       break;
     }
 }
@@ -680,7 +660,7 @@ GetPixel (SDL_Surface * Surface, Sint32 X, Sint32 Y)
   if (X >= Surface->w)
     DebugPrintf (2, "x too big in GetPixel!");
 
-  Bpp = SDL_BYTESPERPIXEL(Surface->format);
+  Bpp = Surface->format->BytesPerPixel;
 
   bits = ((Uint8 *) Surface->pixels) + Y * Surface->pitch + X * Bpp;
 
@@ -696,12 +676,9 @@ GetPixel (SDL_Surface * Surface, Sint32 X, Sint32 Y)
     case 3:
       {				// Format/endian independent
 	Uint8 r, g, b;
-	{
-	  const SDL_PixelFormatDetails *fmt = SDL_GetPixelFormatDetails(Surface->format);
-	  r = *((bits) + fmt->Rshift / 8);
-	  g = *((bits) + fmt->Gshift / 8);
-	  b = *((bits) + fmt->Bshift / 8);
-	}
+	r = *((bits) + Surface->format->Rshift / 8);
+	g = *((bits) + Surface->format->Gshift / 8);
+	b = *((bits) + Surface->format->Bshift / 8);
 	return SDL_MapRGB (Surface->format, r, g, b);
       }
       break;

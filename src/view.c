@@ -93,7 +93,7 @@ Assemble_Combat_Picture (int mask)
 
 
 
-  SDL_SetSurfaceClipRect (ne_screen , &User_Rect);
+  SDL_SetClipRect (ne_screen , &User_Rect);
 
   if ( !GameConfig.AllMapVisible )
     Fill_Rect (User_Rect, Black);
@@ -148,9 +148,9 @@ Assemble_Combat_Picture (int mask)
   TxtRect.y = Full_User_Rect.y+Full_User_Rect.h - FontHeight (Font0_BFont);
   TxtRect.h = FontHeight (Font0_BFont);
   TxtRect.w = Full_User_Rect.w;
-  SDL_SetSurfaceClipRect (ne_screen, &TxtRect);
+  SDL_SetClipRect (ne_screen, &TxtRect);
   if (!GameConfig.FullUserRect)
-    SDL_FillSurfaceRect(ne_screen, &TxtRect, 0);
+    SDL_FillRect(ne_screen, &TxtRect, 0);
 
 
   if ( GameConfig.Draw_Position )
@@ -192,7 +192,7 @@ Assemble_Combat_Picture (int mask)
 	}
 
 
-      SDL_SetSurfaceClipRect (ne_screen, &User_Rect);
+      SDL_SetClipRect (ne_screen, &User_Rect);
 
 
       // make sure Ashes are displayed _before_ droids, so that they are _under_ them!
@@ -228,11 +228,11 @@ Assemble_Combat_Picture (int mask)
 
   if ( mask & DO_SCREEN_UPDATE )
     {
-      SDL_UpdateWindowSurfaceRects (FD_GetWindow(), &User_Rect, 1);
-      SDL_UpdateWindowSurfaceRects (FD_GetWindow(), &TxtRect, 1);
+      SDL_UpdateRect (ne_screen, User_Rect.x, User_Rect.y, User_Rect.w, User_Rect.h);
+      SDL_UpdateRect (ne_screen, TxtRect.x, TxtRect.y, TxtRect.w, TxtRect.h);
     }
 
-  SDL_SetSurfaceClipRect (ne_screen, NULL);
+  SDL_SetClipRect (ne_screen, NULL);
 
   return;
 
@@ -260,8 +260,6 @@ PutInfluence ( int x, int y)
   Text_Rect.h=User_Rect.h/2;
 
   DebugPrintf (2, "\nvoid PutInfluence(void): real function call confirmed.");
-
-  SDL_FillSurfaceRect (BuildBlock, NULL, SDL_MapRGBA (BuildBlock->format, 0, 0, 0, 0));
 
   // Now we draw the hat and shoes of the influencer
   SDL_BlitSurface( InfluencerSurfacePointer[ (int) floorf (Me.phase) ], NULL , BuildBlock, NULL);
@@ -391,7 +389,6 @@ PutEnemy (int Enum , int x , int y)
 
   //--------------------
   // First blit just the enemy hat and shoes.
-  SDL_FillSurfaceRect (BuildBlock, NULL, SDL_MapRGBA (BuildBlock->format, 0, 0, 0, 0));
   SDL_BlitSurface (EnemySurfacePointer[phase], NULL, BuildBlock, NULL);
 
   //--------------------
@@ -524,7 +521,7 @@ PutBullet (int BulletNummer)
       for ( i=0; i<Bulletmap[ CurBullet->type ].phases ; i++ )
 	{
 	  CurBullet->SurfacePointer[i] =
-	    RotateSurfaceNearest ( Bulletmap[CurBullet->type].SurfacePointer[ i ] , CurBullet->angle );
+	    rotozoomSurface( Bulletmap[CurBullet->type].SurfacePointer[ i ] , CurBullet->angle , 1.0 , FALSE );
 	}
       DebugPrintf( 1 , "\nvoid PutBullet(i): This was the first time for this bullet, so images were generated... angle=%f" , CurBullet->angle);
       CurBullet->Surfaces_were_generated=TRUE;
@@ -542,7 +539,7 @@ PutBullet (int BulletNummer)
 
   SDL_BlitSurface( CurBullet->SurfacePointer[ PhaseOfBullet ] , NULL, ne_screen , &dst );
 #else
-  tmp = RotateSurfaceNearest ( Bulletmap[CurBullet->type].SurfacePointer[ PhaseOfBullet ] , CurBullet->angle );
+  tmp = rotozoomSurface( Bulletmap[CurBullet->type].SurfacePointer[ PhaseOfBullet ] , CurBullet->angle , 1.0 , FALSE );
 
   // WARNING!!! PAY ATTENTION HERE!! After the rotozoom was applied to the image, it is NO
   // LONGER of dimension Block_Rect.w times Block_Rect.h, but of the dimesions of the smallest
@@ -555,7 +552,7 @@ PutBullet (int BulletNummer)
     - (Me.pos.y-CurBullet->pos.y)*Block_Rect.w-CurBullet->SurfacePointer[ PhaseOfBullet ]->h/2;
 
   SDL_BlitSurface( tmp , NULL, ne_screen , &dst );
-  SDL_DestroySurface( tmp );
+  SDL_FreeSurface( tmp );
 #endif
 
   DebugPrintf ( 1 , "\nvoid PutBullet(int BulletNummer): end of function reched.\n");
@@ -602,7 +599,7 @@ SetUserfenster (int fillcolor)
 
   Set_Rect (tmp, User_Rect.x, User_Rect.y, User_Rect.w, User_Rect.h);
 
-  SDL_FillSurfaceRect( ne_screen , &tmp, fillcolor );
+  SDL_FillRect( ne_screen , &tmp, fillcolor );
 
   return;
 }				/* SetUserFenster() */
@@ -621,7 +618,7 @@ Fill_Rect (SDL_Rect rect, SDL_Color fillcolor)
 
   pixcolor = SDL_MapRGB (ne_screen->format, fillcolor.r, fillcolor.g, fillcolor.b);
 
-  SDL_FillSurfaceRect (ne_screen, &tmp, pixcolor);
+  SDL_FillRect (ne_screen, &tmp, pixcolor);
 
   return;
 }
@@ -702,13 +699,12 @@ DisplayBanner (const char* left, const char* right,  int flags )
       // Redraw the whole background of the top status bar
       dst.x=0;
       dst.y=0;
-      SDL_SetSurfaceClipRect( ne_screen , NULL );  // this unsets the clipping rectangle
+      SDL_SetClipRect( ne_screen , NULL );  // this unsets the clipping rectangle
       SDL_BlitSurface( banner_pic, NULL, ne_screen , &dst );
 
       // Now the text should be ready and its
       // time to display it...
-      if ( BannerIsDestroyed ||
-	   (strcmp( left_box , previous_left_box )) ||
+      if ( (strcmp( left_box , previous_left_box )) ||
 	   (strcmp( right_box , previous_right_box )) ||
 	   ( flags & BANNER_FORCE_UPDATE ) )
 	{
@@ -724,14 +720,7 @@ DisplayBanner (const char* left, const char* right,  int flags )
 
       // finally update the whole top status box
       if ( !(flags & BANNER_NO_SDL_UPDATE ) )
-	{
-	  SDL_Rect update_rect;
-	  update_rect.x = 0;
-	  update_rect.y = 0;
-	  update_rect.w = Banner_Rect.w;
-	  update_rect.h = Banner_Rect.h;
-	  SDL_UpdateWindowSurfaceRects (FD_GetWindow(), &update_rect, 1);
-	}
+	SDL_UpdateRect( ne_screen, 0, 0, Banner_Rect.w , Banner_Rect.h );
       BannerIsDestroyed=FALSE;
       return;
     } /* if */

@@ -44,6 +44,8 @@
 
 int read_variable (char *data, const char *var_name, const char *fmt, void *var);
 
+const char *homedir = NULL;
+
 long oneframedelay = 0;
 long tenframedelay = 0;
 long onehundredframedelay = 0;
@@ -52,60 +54,10 @@ Uint32 One_Frame_SDL_Ticks;
 int framenr = 0;
 static float currentTimeFactor = 1.0;
 
-#define CONFIG_FILE_BASENAME "config-sdl3"
-
 SDL_Color progress_color = {.r = 200, .g = 20, .b = 20};
 
 extern int key_cmds[CMD_LAST][3];
 extern char *cmd_strings[CMD_LAST];
-
-static int
-InitConfigDir (void)
-{
-  char *pref_path;
-  struct stat statbuf;
-
-  ConfigDir[0] = '\0';
-
-  pref_path = SDL_GetPrefPath ("freedroid", "freedroidClassic");
-  if (pref_path == NULL)
-    {
-      DebugPrintf (0, "WARNING: SDL_GetPrefPath() failed: %s\n", SDL_GetError ());
-      return (ERR);
-    }
-
-  if (snprintf (ConfigDir, sizeof (ConfigDir), "%s", pref_path) >= (int) sizeof (ConfigDir))
-    {
-      DebugPrintf (0, "WARNING: config dir path too long: %s\n", pref_path);
-      SDL_free (pref_path);
-      ConfigDir[0] = '\0';
-      return (ERR);
-    }
-
-  SDL_free (pref_path);
-  while ((ConfigDir[0] != '\0') && (ConfigDir[strlen (ConfigDir) - 1] == '/'))
-    ConfigDir[strlen (ConfigDir) - 1] = '\0';
-  DebugPrintf (0, "Using config-dir '%s'\n", ConfigDir);
-
-  if (stat (ConfigDir, &statbuf) == -1)
-    {
-      DebugPrintf (0, "Couldn't stat Config-dir %s, I'll try to create it...", ConfigDir);
-#if SDL_PLATFORM_WIN32
-      _mkdir (ConfigDir);
-      DebugPrintf (0, "Found config-dir '%s'\n", ConfigDir );
-#else
-      if (mkdir (ConfigDir, 0777) == -1)
-        {
-          DebugPrintf (0, "WARNING: Failed to create config-dir: %s. Giving up...\n", ConfigDir);
-          ConfigDir[0] = '\0';
-          return (ERR);
-        }
-      DebugPrintf (0, "Successfully created config-dir '%s'\n", ConfigDir );
-#endif
-    }
-
-  return (OK);
-}
 
 // ------------------------------------------------------------
 // just a plain old sign-function
@@ -190,17 +142,53 @@ read_variable (char *data, const char *var_name, const char *fmt, void *var)
 int
 LoadGameConfig (void)
 {
-  const char *base = CONFIG_FILE_BASENAME;
+  const char *base = "config";
   char fname[sizeof(ConfigDir) + strlen(base) + 2];
   FILE *fp;
   char *data;
   off_t size, read_size;
+  struct stat statbuf;
   char version_string[100];
   char lbuf[1000]; // line-buffer for reading keyboard-config
   int i;
 
-  if (InitConfigDir () == ERR)
-    return (ERR);
+#ifdef __amigaos__
+  // config and highscores go in the drawer Config beside the program
+  homedir = "PROGDIR:";
+  sprintf (ConfigDir, "%sConfig", homedir);
+#else
+  // first we need the user's homedir for loading/saving stuff
+  if ( (homedir = getenv("HOME")) == NULL )
+    {
+      DebugPrintf ( 0 , "WARNING: Environment does not contain HOME variable...using local dir\n");
+      homedir = ".";
+    }
+  else
+    DebugPrintf (0, "found environment HOME = '%s'\n", homedir );
+
+  sprintf (ConfigDir, "%s/.freedroidClassic", homedir);
+#endif
+
+  if (stat(ConfigDir, &statbuf) == -1) {
+    DebugPrintf (0, "Couldn't stat Config-dir %s, I'll try to create it...", ConfigDir);
+#if __WIN32__
+    _mkdir (ConfigDir);
+    DebugPrintf (0, "Found config-dir '%s'\n", ConfigDir );
+    return (OK);
+#else
+    mode_t mode = 0777; //S_IREAD|S_IWRITE|S_IEXEC
+    if (mkdir (ConfigDir, mode) == -1)
+      {
+	DebugPrintf (0, "WARNING: Failed to create config-dir: %s. Giving up...\n", ConfigDir);
+	return (ERR);
+      }
+    else
+      {
+	DebugPrintf (0, "Successfully created config-dir '%s'\n", ConfigDir );
+	return (OK);
+      }
+#endif
+  }
 
   sprintf (fname, "%s/%s", ConfigDir, base);
 
@@ -222,12 +210,12 @@ LoadGameConfig (void)
   DebugPrintf (2, "Wanted to read %d bytes, got %d bytes\n", size, read_size);
 
   // windoze doesn't seem to be its numbers right, so let's just close our eyes here..
-#ifndef SDL_PLATFORM_WIN32
+#ifndef __WIN32__
   if ( read_size != size )
     {
       DebugPrintf (0, "WARNING: error in reading config-file %s\n Giving up...", fname);
       fclose (fp);
-      MyFree (data);
+      free (data);
       return (ERR);
     }
 #endif
@@ -237,7 +225,7 @@ LoadGameConfig (void)
   if ( read_variable (data, VERSION_STRING, "%s", version_string) == ERR)
     {
       DebugPrintf (0, "Version string could not be read in config-file...\n");
-      MyFree (data);
+      free (data);
       return (ERR);
     }
 
@@ -270,7 +258,7 @@ LoadGameConfig (void)
       }
     }
 
-  MyFree (data);
+  free (data);
 
   return (OK);
 
@@ -283,12 +271,12 @@ LoadGameConfig (void)
 int
 SaveGameConfig (void)
 {
-  const char *base = CONFIG_FILE_BASENAME;
+  const char *base = "config";
   char fname[sizeof(ConfigDir) + strlen(base) + 2];
   FILE *fp;
   int i;
 
-  if ((ConfigDir[0] == '\0') && (InitConfigDir () == ERR))
+  if ( ConfigDir[0] == '\0')
     return (ERR);
 
   sprintf (fname, "%s/%s", ConfigDir, base);
@@ -340,8 +328,8 @@ The original source string specified should in no way be modified.
 char*
 ReadAndMallocStringFromData ( const char* SearchString , const char* StartIndicationString , const char* EndIndicationString )
 {
-  const char* SearchPointer;
-  const char* EndOfStringPointer;
+  char* SearchPointer;
+  char* EndOfStringPointer;
   char* ReturnString = NULL;
   int StringLength;
 
@@ -570,10 +558,10 @@ The return value is a pointer to the first instance where the substring
 we are searching is found in the main text.
 ----------------------------------------------------------------------
 */
-const char*
+char*
 LocateStringInData ( const char* SearchBeginPointer, const char* SearchTextPointer )
 {
-  const char* temp;
+  char* temp;
 
   if ( ( temp = strstr ( SearchBeginPointer , SearchTextPointer ) ) == NULL)
     {
@@ -619,7 +607,7 @@ not resolve.... Sorry, if that interrupts a major game of yours.....\n\
 void
 ReadValueFromString (const char* data, const char* label, const char* FormatString, void* dst)
 {
-  const char *pos;
+  char *pos;
 
   // Now we locate the label in data and position pointer right after the label
   pos = LocateStringInData (data, label); // ..will Terminate itself if not found...
@@ -683,6 +671,20 @@ find_file (const char *fname, const char *subdir, int use_theme, int critical)
   if (!subdir)
     subdir = "";
 
+#ifdef __amigaos__
+  /* acsdl12 reads PNG only: the JPEGs were converted to PNGs of the same
+   * name (amiga/tools/convert_gfx.py), and data files such as
+   * map/Paradroid.mission still name them .jpg */
+  char png_name[256];
+  size_t flen = strlen (fname);
+  if ( (flen > 4) && (flen < sizeof(png_name)) && (strcasecmp (fname + flen - 4, ".jpg") == 0) )
+    {
+      strcpy (png_name, fname);
+      strcpy (png_name + flen - 4, ".png");
+      fname = png_name;
+    }
+#endif
+
   for (i=0; i < 2; i++)
     {
       if (i==0)
@@ -693,7 +695,12 @@ find_file (const char *fname, const char *subdir, int use_theme, int critical)
       if (use_theme == USE_THEME)
         snprintf ( Theme_Dir, sizeof(Theme_Dir), "%s_theme/", GameConfig.Theme_Name );
 
+#ifdef __amigaos__
+      /* datadir is "PROGDIR:" and subdir ends in '/': no '/' between */
+      snprintf ( File_Path, len, "%s%s%s%s"   , datadir, subdir, Theme_Dir, fname );
+#else
       snprintf ( File_Path, len, "%s/%s/%s%s"   , datadir, subdir, Theme_Dir, fname );
+#endif
       File_Path[len-1] = 0;  /* make sure */
 
       if ( (fp = fopen (File_Path, "r")) != NULL)  /* found it? */
@@ -1086,12 +1093,35 @@ Terminate (int ExitCode)
 
   // ----- exit
   DebugPrintf(0, "Thank you for playing Freedroid.\n\n");
-  MyCheckMemoryLeaks ();
   SDL_Quit();
   exit (ExitCode);
   return;
 }  // void Terminate(int ExitCode)
 
+
+/*@Function============================================================
+@Desc: This function usese calloc, so memory is automatically 0-initialized!
+       The function also checks for success and terminates in case of
+       "out of memory", so we dont need to do this always in the code.
+@Ret:
+* $Function----------------------------------------------------------*/
+void *
+MyMalloc (long Mamount)
+{
+  void *Mptr = NULL;
+
+  // make Gnu-compatible even if on a broken system:
+  if (Mamount == 0)
+    Mamount = 1;
+
+  if ((Mptr = calloc (1, (size_t) Mamount)) == NULL)
+    {
+      DebugPrintf (0, " MyMalloc(%ld) did not succeed!\n", Mamount);
+      Terminate(ERR);
+    }
+
+  return Mptr;
+}				// void* MyMalloc(long Mamount)
 
 /*----------------------------------------------------------------------
  * FS_filelength().. (taken from quake2)
@@ -1137,7 +1167,7 @@ init_progress (const char *text)
       ScaleRect (ProgressText_Rect, GameConfig.scale);
     }
 
-  SDL_SetSurfaceClipRect( ne_screen , NULL );  // this unsets the clipping rectangle
+  SDL_SetClipRect( ne_screen , NULL );  // this unsets the clipping rectangle
   SDL_BlitSurface( progress_meter_pic, NULL, ne_screen , &ProgressMeter_Rect );
 
   Copy_Rect (ProgressText_Rect, dst);
@@ -1146,7 +1176,7 @@ init_progress (const char *text)
 
   printf_SDL (ne_screen, dst.x, dst.y, text);
 
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
 } // init_progress()
 
@@ -1175,7 +1205,7 @@ update_progress (int percent)
   //  Fill_Rect (dst, progress_color);
   SDL_BlitSurface (progress_filler_pic, &src, ne_screen, &dst);
 
-  SDL_UpdateWindowSurfaceRects (FD_GetWindow(), &dst, 1);
+  SDL_UpdateRects (ne_screen, 1, &dst);
 
   return;
 

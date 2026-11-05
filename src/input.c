@@ -38,6 +38,14 @@
 #include "global.h"
 #include "proto.h"
 
+// earlier SDL versions didn't define these...
+#ifndef SDL_BUTTON_WHEELUP
+#define SDL_BUTTON_WHEELUP 4
+#endif
+#ifndef SDL_BUTTON_WHEELDOWN
+#define SDL_BUTTON_WHEELDOWN 5
+#endif
+
 #define JOY_MAX_VAL 32767     // maximal amplitude of joystick axis values
 #ifndef ANDROID
 #define JOY_DEAD_ZONE 10000   // joystick tilt ignored below this value
@@ -54,25 +62,7 @@ Uint32 last_mouse_event = 0;  // record when last mouse event took place (SDL ti
 
 SDLMod current_modifiers;
 
-#define MAX_TRACKED_INPUTS 1024
-
-typedef struct
-{
-  int key;
-  int state;
-} tracked_input_t;
-
-static tracked_input_t input_state[MAX_TRACKED_INPUTS];
-static int input_state_count = 0;
-
-typedef struct
-{
-  int key;
-  const char *name;
-} key_name_entry_t;
-
-static key_name_entry_t key_names[128];
-static int key_name_count = 0;
+int input_state[INPUT_LAST];	// array of states (pressed/released) of all keys
 
 int key_cmds[CMD_LAST][3] =  // array of mappings {key1,key2,key3 -> cmd}
   {
@@ -107,6 +97,8 @@ int key_cmds[CMD_LAST][3] =  // array of mappings {key1,key2,key3 -> cmd}
 #endif
   };
 
+const char *keystr[INPUT_LAST];
+
 const char *cmd_strings[CMD_LAST] =
   {
     "UP",
@@ -137,126 +129,187 @@ const char *cmd_strings[CMD_LAST] =
 
 // local prototypes
 int sgn (int x);
-static int *get_input_state_ptr (int key, int create);
-static void set_input_state (int key, int state);
-static int get_input_state (int key);
-static void set_key_name (int key, const char *name);
-
-const char *
-GetKeyString (int key)
-{
-  static char buf[32];
-  int i;
-
-  if (key == 0) return "NONE";
-
-  for (i=0; i < key_name_count; i++)
-    if (key_names[i].key == key)
-      return key_names[i].name;
-
-  if (key > 0)
-    {
-      const char *sdl_name = SDL_GetKeyName((SDL_Keycode)key);
-      if (sdl_name && *sdl_name)
-        return sdl_name;
-    }
-
-  snprintf(buf, sizeof(buf), "Key%d", key);
-  return buf;
-}
-
-static int *
-get_input_state_ptr (int key, int create)
-{
-  int i;
-
-  for (i=0; i < input_state_count; i++)
-    if (input_state[i].key == key)
-      return &input_state[i].state;
-
-  if (!create || input_state_count >= MAX_TRACKED_INPUTS)
-    return NULL;
-
-  input_state[input_state_count].key = key;
-  input_state[input_state_count].state = 0;
-  input_state_count++;
-
-  return &input_state[input_state_count - 1].state;
-}
-
-static void
-set_input_state (int key, int state)
-{
-  int *slot = get_input_state_ptr(key, 1);
-  if (slot)
-    *slot = state;
-}
-
-static int
-get_input_state (int key)
-{
-  int *slot = get_input_state_ptr(key, 0);
-  return slot ? *slot : 0;
-}
-
-static void
-set_key_name (int key, const char *name)
-{
-  int i;
-
-  for (i=0; i < key_name_count; i++)
-    {
-      if (key_names[i].key == key)
-        {
-          key_names[i].name = name;
-          return;
-        }
-    }
-
-  if (key_name_count < (int)NUM_ELEM(key_names))
-    {
-      key_names[key_name_count].key = key;
-      key_names[key_name_count].name = name;
-      key_name_count++;
-    }
-}
 
 void
 init_keystr (void)
 {
-  key_name_count = 0;
-
-#ifdef GCW0
-  set_key_name(SDLK_BACKSPACE, "RSldr");
-  set_key_name(SDLK_TAB, "LSldr");
-  set_key_name(SDLK_RETURN, "Start");
-  set_key_name(SDLK_SPACE, "Y");
-  set_key_name(SDLK_ESCAPE, "Select");
-  set_key_name(SDLK_LSHIFT, "X");
-  set_key_name(SDLK_LCTRL, "A");
-  set_key_name(SDLK_LALT, "B");
+  keystr[0]             = "NONE"; // Empty bind will otherwise crash on some platforms - also, we choose "NONE" as a placeholder...
+#ifdef GCW0 // The GCW0 may change to joystick input altogether in the future - which will make these ifdefs unnecessary, I hope...
+  keystr[SDLK_BACKSPACE] = "RSldr";
+  keystr[SDLK_TAB]	= "LSldr";
+  keystr[SDLK_RETURN]	= "Start";
+  keystr[SDLK_SPACE]	= "Y";
+  keystr[SDLK_ESCAPE]	= "Select";
 #else
-  set_key_name(SDLK_BACKSPACE, "BS");
-  set_key_name(SDLK_TAB, "Tab");
-  set_key_name(SDLK_RETURN, "Return");
-  set_key_name(SDLK_SPACE, "Space");
-  set_key_name(SDLK_ESCAPE, "Esc");
+  keystr[SDLK_BACKSPACE] = "BS";
+  keystr[SDLK_TAB]	= "Tab";
+  keystr[SDLK_RETURN]	= "Return";
+  keystr[SDLK_SPACE]	= "Space";
+  keystr[SDLK_ESCAPE]	= "Esc";
 #endif
+  keystr[SDLK_CLEAR]	= "Clear";
+  keystr[SDLK_PAUSE]	= "Pause";
+  keystr[SDLK_EXCLAIM]	= "!";
+  keystr[SDLK_QUOTEDBL]	= "\"";
+  keystr[SDLK_HASH]	= "#";
+  keystr[SDLK_DOLLAR]	= "$";
+  keystr[SDLK_AMPERSAND]= "&";
+  keystr[SDLK_QUOTE]	= "'";
+  keystr[SDLK_LEFTPAREN]= "(";
+  keystr[SDLK_RIGHTPAREN]=")";
+  keystr[SDLK_ASTERISK]	= "*";
+  keystr[SDLK_PLUS]	= "+";
+  keystr[SDLK_COMMA]	= ",";
+  keystr[SDLK_MINUS]	= "-";
+  keystr[SDLK_PERIOD]	= ".";
+  keystr[SDLK_SLASH]	= "/";
+  keystr[SDLK_0]	= "0";
+  keystr[SDLK_1]	= "1";
+  keystr[SDLK_2]	= "2";
+  keystr[SDLK_3]	= "3";
+  keystr[SDLK_4]	= "4";
+  keystr[SDLK_5]	= "5";
+  keystr[SDLK_6]	= "6";
+  keystr[SDLK_7]	= "7";
+  keystr[SDLK_8]	= "8";
+  keystr[SDLK_9]	= "9";
+  keystr[SDLK_COLON]	= ":";
+  keystr[SDLK_SEMICOLON]= ";";
+  keystr[SDLK_LESS]	= "<";
+  keystr[SDLK_EQUALS]	= "=";
+  keystr[SDLK_GREATER]	= ">";
+  keystr[SDLK_QUESTION]	= "?";
+  keystr[SDLK_AT]	= "@";
+  keystr[SDLK_LEFTBRACKET]	= "[";
+  keystr[SDLK_BACKSLASH]	= "\\";
+  keystr[SDLK_RIGHTBRACKET]	= "]";
+  keystr[SDLK_CARET]	= "^";
+  keystr[SDLK_UNDERSCORE]	= "_";
+  keystr[SDLK_BACKQUOTE]	= "`";
+  keystr[SDLK_a]	= "a";
+  keystr[SDLK_b]	= "b";
+  keystr[SDLK_c]	= "c";
+  keystr[SDLK_d]	= "d";
+  keystr[SDLK_e]	= "e";
+  keystr[SDLK_f]	= "f";
+  keystr[SDLK_g]	= "g";
+  keystr[SDLK_h]	= "h";
+  keystr[SDLK_i]	= "i";
+  keystr[SDLK_j]	= "j";
+  keystr[SDLK_k]	= "k";
+  keystr[SDLK_l]	= "l";
+  keystr[SDLK_m]	= "m";
+  keystr[SDLK_n]	= "n";
+  keystr[SDLK_o]	= "o";
+  keystr[SDLK_p]	= "p";
+  keystr[SDLK_q]	= "q";
+  keystr[SDLK_r]	= "r";
+  keystr[SDLK_s]	= "s";
+  keystr[SDLK_t]	= "t";
+  keystr[SDLK_u]	= "u";
+  keystr[SDLK_v]	= "v";
+  keystr[SDLK_w]	= "w";
+  keystr[SDLK_x]	= "x";
+  keystr[SDLK_y]	= "y";
+  keystr[SDLK_z]	= "z";
+  keystr[SDLK_DELETE]	= "Del";
 
-  set_key_name(MOUSE_BUTTON1, "Mouse1");
-  set_key_name(MOUSE_BUTTON2, "Mouse2");
-  set_key_name(MOUSE_BUTTON3, "Mouse3");
-  set_key_name(MOUSE_WHEELUP, "WheelUp");
-  set_key_name(MOUSE_WHEELDOWN, "WheelDown");
 
-  set_key_name(JOY_UP, "JoyUp");
-  set_key_name(JOY_DOWN, "JoyDown");
-  set_key_name(JOY_LEFT, "JoyLeft");
-  set_key_name(JOY_RIGHT, "JoyRight");
-  set_key_name(JOY_BUTTON1, "Joy-A");
-  set_key_name(JOY_BUTTON2, "Joy-B");
-  set_key_name(JOY_BUTTON3, "Joy-X");
-  set_key_name(JOY_BUTTON4, "Joy-Y");
+  /* Numeric keypad */
+  keystr[SDLK_KP0]	= "Num[0]";
+  keystr[SDLK_KP1]	= "Num[1]";
+  keystr[SDLK_KP2]	= "Num[2]";
+  keystr[SDLK_KP3]	= "Num[3]";
+  keystr[SDLK_KP4]	= "Num[4]";
+  keystr[SDLK_KP5]	= "Num[5]";
+  keystr[SDLK_KP6]	= "Num[6]";
+  keystr[SDLK_KP7]	= "Num[7]";
+  keystr[SDLK_KP8]	= "Num[8]";
+  keystr[SDLK_KP9]	= "Num[9]";
+  keystr[SDLK_KP_PERIOD]= "Num[.]";
+  keystr[SDLK_KP_DIVIDE]= "Num[/]";
+  keystr[SDLK_KP_MULTIPLY]= "Num[*]";
+  keystr[SDLK_KP_MINUS]	= "Num[-]";
+  keystr[SDLK_KP_PLUS]	= "Num[+]";
+  keystr[SDLK_KP_ENTER]	= "Num[Enter]";
+  keystr[SDLK_KP_EQUALS]= "Num[=]";
+
+  /* Arrows + Home/End pad */
+  keystr[SDLK_UP]	= "Up";
+  keystr[SDLK_DOWN]	= "Down";
+  keystr[SDLK_RIGHT]	= "Right";
+  keystr[SDLK_LEFT]	= "Left";
+  keystr[SDLK_INSERT]	= "Insert";
+  keystr[SDLK_HOME]	= "Home";
+  keystr[SDLK_END]	= "End";
+  keystr[SDLK_PAGEUP]	= "PageUp";
+  keystr[SDLK_PAGEDOWN]	= "PageDown";
+
+  /* Function keys */
+  keystr[SDLK_F1]	= "F1";
+  keystr[SDLK_F2]	= "F2";
+  keystr[SDLK_F3]	= "F3";
+  keystr[SDLK_F4]	= "F4";
+  keystr[SDLK_F5]	= "F5";
+  keystr[SDLK_F6]	= "F6";
+  keystr[SDLK_F7]	= "F7";
+  keystr[SDLK_F8]	= "F8";
+  keystr[SDLK_F9]	= "F9";
+  keystr[SDLK_F10]	= "F10";
+  keystr[SDLK_F11]	= "F11";
+  keystr[SDLK_F12]	= "F12";
+  keystr[SDLK_F13]	= "F13";
+  keystr[SDLK_F14]	= "F14";
+  keystr[SDLK_F15]	= "F15";
+
+  /* Key state modifier keys */
+  keystr[SDLK_NUMLOCK]	= "NumLock";
+  keystr[SDLK_CAPSLOCK]	= "CapsLock";
+  keystr[SDLK_SCROLLOCK]= "ScrlLock";
+#ifdef GCW0
+  keystr[SDLK_LSHIFT]	= "X";
+  keystr[SDLK_LCTRL]	= "A";
+  keystr[SDLK_LALT]	= "B";
+#else
+  keystr[SDLK_LSHIFT]	= "LShift";
+  keystr[SDLK_LCTRL]	= "LCtrl";
+  keystr[SDLK_LALT]	= "LAlt";
+#endif
+  keystr[SDLK_RSHIFT]	= "RShift";
+  keystr[SDLK_RCTRL]	= "RCtrl";
+  keystr[SDLK_RALT]	= "RAlt";
+  keystr[SDLK_RMETA]	= "RMeta";
+  keystr[SDLK_LMETA]	= "LMeta";
+  keystr[SDLK_LSUPER]	= "LSuper";
+  keystr[SDLK_RSUPER]	= "RSuper";
+  keystr[SDLK_MODE]	= "Mode";
+  keystr[SDLK_COMPOSE]	= "Compose";
+
+  /* Miscellaneous function keys */
+  keystr[SDLK_HELP]	= "Help";
+  keystr[SDLK_PRINT]	= "Print";
+  keystr[SDLK_SYSREQ]	= "SysReq";
+  keystr[SDLK_BREAK]	= "Break";
+  keystr[SDLK_MENU]	= "Menu";
+  keystr[SDLK_POWER]	= "Power";
+  keystr[SDLK_EURO]	= "Euro";
+  keystr[SDLK_UNDO]	= "Undo";
+
+  /* Mouse und Joy buttons */
+  keystr[MOUSE_BUTTON1]	= "Mouse1";
+  keystr[MOUSE_BUTTON2] = "Mouse2";
+  keystr[MOUSE_BUTTON3] = "Mouse3";
+  keystr[MOUSE_WHEELUP] = "WheelUp";
+  keystr[MOUSE_WHEELDOWN]="WheelDown";
+
+  keystr[JOY_UP]	= "JoyUp";
+  keystr[JOY_DOWN]	= "JoyDown";
+  keystr[JOY_LEFT]	= "JoyLeft";
+  keystr[JOY_RIGHT]	= "JoyRight";
+  keystr[JOY_BUTTON1] 	= "Joy-A";
+  keystr[JOY_BUTTON2] 	= "Joy-B";
+  keystr[JOY_BUTTON3] 	= "Joy-X";
+  keystr[JOY_BUTTON4] 	= "Joy-Y";
 
   return;
 } // init_keystr()
@@ -271,7 +324,7 @@ void Init_Joy (void)
 {
   int num_joy;
 
-  if (!SDL_InitSubSystem (SDL_INIT_JOYSTICK))
+  if (SDL_InitSubSystem (SDL_INIT_JOYSTICK) == -1)
     {
       fprintf(stderr, "Couldn't initialize SDL-Joystick: %s\n", SDL_GetError());
       Terminate(ERR);
@@ -279,23 +332,19 @@ void Init_Joy (void)
       DebugPrintf(1, "\nSDL Joystick initialisation successful.\n");
 
 
-  {
-    SDL_JoystickID *sticks = SDL_GetJoysticks(&num_joy);
-    SDL_free(sticks);
-  }
-  DebugPrintf (1, " %d Joysticks found!\n", num_joy);
+  DebugPrintf (1, " %d Joysticks found!\n", num_joy = SDL_NumJoysticks ());
 
   if (num_joy > 0)
-    joy = SDL_OpenJoystick (0);
+    joy = SDL_JoystickOpen (0);
 
   if (joy)
     {
-      DebugPrintf (1, "Identifier: %s\n", SDL_GetJoystickName (0));
-      DebugPrintf (1, "Number of Axes: %d\n", joy_num_axes = SDL_GetNumJoystickAxes(joy));
-      DebugPrintf (1, "Number of Buttons: %d\n", SDL_GetNumJoystickButtons(joy));
+      DebugPrintf (1, "Identifier: %s\n", SDL_JoystickName (0));
+      DebugPrintf (1, "Number of Axes: %d\n", joy_num_axes = SDL_JoystickNumAxes(joy));
+      DebugPrintf (1, "Number of Buttons: %d\n", SDL_JoystickNumButtons(joy));
 
       /* aktivate Joystick event handling */
-      SDL_SetJoystickEventsEnabled(true);
+      SDL_JoystickEventState (SDL_ENABLE);
 
     }
   else
@@ -353,28 +402,28 @@ update_input (void)
     {
       switch( event.type )
 	{
-	case SDL_EVENT_QUIT:
+	case SDL_QUIT:
 	  printf("\n\nUser requested termination...\n\nTerminating...");
 	  Terminate(0);
 	  break;
 	  /* Look for a keypress */
 
-	case SDL_EVENT_KEY_DOWN:
-	  current_modifiers = event.key.mod;
-	  set_input_state(event.key.key, PRESSED);
+	case SDL_KEYDOWN:
+	  current_modifiers = event.key.keysym.mod;
+	  input_state[event.key.keysym.sym] = PRESSED;
 #ifdef GCW0
 	  if ( input_axis.x || input_axis.y ) axis_is_active = TRUE; // 4 GCW-0 ; breaks cursor keys after axis has been active...
 #endif
 	  break;
-	case SDL_EVENT_KEY_UP:
-	  current_modifiers = event.key.mod;
-	  set_input_state(event.key.key, RELEASED);
+	case SDL_KEYUP:
+	  current_modifiers = event.key.keysym.mod;
+	  input_state[event.key.keysym.sym] = RELEASED;
 #ifdef GCW0
 	  axis_is_active = FALSE;
 #endif
 	  break;
 
-	case SDL_EVENT_JOYSTICK_AXIS_MOTION:
+	case SDL_JOYAXISMOTION:
 	  axis = event.jaxis.axis;
 	  if (axis == 0 || ((joy_num_axes >= 5) && (axis == 3)) ) /* x-axis */
 	    {
@@ -387,18 +436,18 @@ update_input (void)
 	      // so that it behaves like "set"/"release"
 	      if (joy_sensitivity*event.jaxis.value > 10000)   /* about half tilted */
 		{
-		  set_input_state(JOY_RIGHT, PRESSED);
-		  set_input_state(JOY_LEFT, FALSE);
+		  input_state[JOY_RIGHT] = PRESSED;
+		  input_state[JOY_LEFT] = FALSE;
 		}
 	      else if (joy_sensitivity*event.jaxis.value < -10000)
 		{
-		  set_input_state(JOY_LEFT, PRESSED);
-		  set_input_state(JOY_RIGHT, FALSE);
+		  input_state[JOY_LEFT] = PRESSED;
+		  input_state[JOY_RIGHT] = FALSE;
 		}
 	      else
 		{
-		  set_input_state(JOY_LEFT, FALSE);
-		  set_input_state(JOY_RIGHT, FALSE);
+		  input_state[JOY_LEFT] = FALSE;
+		  input_state[JOY_RIGHT] = FALSE;
 		}
 	    }
 	  else if ((axis == 1) || ((joy_num_axes >=5) && (axis == 4))) /* y-axis */
@@ -407,111 +456,108 @@ update_input (void)
 
 	      if (joy_sensitivity*event.jaxis.value > 10000)
 		{
-		  set_input_state(JOY_DOWN, PRESSED);
-		  set_input_state(JOY_UP, FALSE);
+		  input_state[JOY_DOWN] = PRESSED;
+		  input_state[JOY_UP] =  FALSE;
 		}
 	      else if (joy_sensitivity*event.jaxis.value < -10000)
 		{
-		  set_input_state(JOY_UP, PRESSED);
-		  set_input_state(JOY_DOWN, FALSE);
+		  input_state[JOY_UP] = PRESSED;
+		  input_state[JOY_DOWN]= FALSE;
 		}
 	      else
 		{
-		  set_input_state(JOY_UP, FALSE);
-		  set_input_state(JOY_DOWN, FALSE);
+		  input_state[JOY_UP] = FALSE;
+		  input_state[JOY_DOWN] = FALSE;
 		}
 	    }
 
 	  break;
 
-	case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
+	case SDL_JOYBUTTONDOWN:
 	  // first button
 	  if (event.jbutton.button == 0)
-	    set_input_state(JOY_BUTTON1, PRESSED);
+	    input_state[JOY_BUTTON1] = PRESSED;
 
 	  // second button
 	  else if (event.jbutton.button == 1)
-	    set_input_state(JOY_BUTTON2, PRESSED);
+	    input_state[JOY_BUTTON2] = PRESSED;
 
 	  // and third button
 	  else if (event.jbutton.button == 2)
-	    set_input_state(JOY_BUTTON3, PRESSED);
+	    input_state[JOY_BUTTON3] = PRESSED;
 
 	  // and fourth button
           else if (event.jbutton.button == 3)
-	    set_input_state(JOY_BUTTON4, PRESSED);
+	    input_state[JOY_BUTTON4] = PRESSED;
 
 	  axis_is_active = TRUE;
 	  break;
 
-	case SDL_EVENT_JOYSTICK_BUTTON_UP:
+	case SDL_JOYBUTTONUP:
 	  // first button
 	  if (event.jbutton.button == 0)
-	    set_input_state(JOY_BUTTON1, FALSE);
+	    input_state[JOY_BUTTON1] = FALSE;
 
 	  // second button
 	  else if (event.jbutton.button == 1)
-	    set_input_state(JOY_BUTTON2, FALSE);
+	    input_state[JOY_BUTTON2] = FALSE;
 
 	  // and third button
 	  else if (event.jbutton.button == 2)
-	    set_input_state(JOY_BUTTON3, FALSE);
+	    input_state[JOY_BUTTON3] = FALSE;
 
 	  // and fourth button
           else if (event.jbutton.button == 3)
-	    set_input_state(JOY_BUTTON4, FALSE);
+	    input_state[JOY_BUTTON4] = PRESSED;
 
 	  axis_is_active = FALSE;
 	  break;
 
-	case SDL_EVENT_MOUSE_MOTION:
-	  input_axis.x = event.motion.x - UserCenter_x + 16;
-	  input_axis.y = event.motion.y - UserCenter_y + 16;
+	case SDL_MOUSEMOTION:
+	  input_axis.x = event.button.x - UserCenter_x + 16;
+	  input_axis.y = event.button.y - UserCenter_y + 16;
 
 	  last_mouse_event = SDL_GetTicks ();
 
 	  break;
 
 	  /* Mouse control */
-	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_MOUSEBUTTONDOWN:
 	  if (event.button.button == SDL_BUTTON_LEFT)
 	    {
-	      input_axis.x = event.button.x - UserCenter_x + 16;
-	      input_axis.y = event.button.y - UserCenter_y + 16;
-	      set_input_state(MOUSE_BUTTON1, PRESSED);
+	      input_state[MOUSE_BUTTON1] = PRESSED;
 	      axis_is_active = TRUE;
 	    }
 
 	  if (event.button.button == SDL_BUTTON_RIGHT)
-	    set_input_state(MOUSE_BUTTON2, PRESSED);
+	    input_state[MOUSE_BUTTON2] = PRESSED;
 
 	  if (event.button.button == SDL_BUTTON_MIDDLE)
-	    set_input_state(MOUSE_BUTTON3, PRESSED);
+	    input_state[MOUSE_BUTTON3] = PRESSED;
+
+	  // wheel events are immediately released, so we rather
+	  // count the number of not yet read-out events
+	  if (event.button.button == SDL_BUTTON_WHEELUP)
+	      WheelUpEvents ++;
+
+	  if (event.button.button == SDL_BUTTON_WHEELDOWN)
+	      WheelDownEvents ++;
 
 	  last_mouse_event = SDL_GetTicks();
 	  break;
 
-	case SDL_EVENT_MOUSE_WHEEL:
-	  if (event.wheel.y > 0)
-	    WheelUpEvents ++;
-	  else if (event.wheel.y < 0)
-	    WheelDownEvents ++;
-
-	  last_mouse_event = SDL_GetTicks();
-	  break;
-
-        case SDL_EVENT_MOUSE_BUTTON_UP:
+        case SDL_MOUSEBUTTONUP:
 	  if (event.button.button == SDL_BUTTON_LEFT)
 	    {
-	      set_input_state(MOUSE_BUTTON1, FALSE);
+	      input_state[MOUSE_BUTTON1] = FALSE;
 	      axis_is_active = FALSE;
 	    }
 
 	  if (event.button.button == SDL_BUTTON_RIGHT)
-	    set_input_state(MOUSE_BUTTON2, FALSE);
+	    input_state[MOUSE_BUTTON2] = FALSE;
 
 	  if (event.button.button == SDL_BUTTON_MIDDLE)
-	    set_input_state(MOUSE_BUTTON3, FALSE);
+	    input_state[MOUSE_BUTTON3] = FALSE;
 
 	  break;
 
@@ -546,16 +592,18 @@ getchar_raw (void)
 
       switch (event.type)
 	{
-	case SDL_EVENT_KEY_DOWN:
+	case SDL_KEYDOWN:
 	  /*
-	   * Menu/name-entry input still treats printable SDL keycodes like ASCII.
+	   * here we use the fact that, I cite from SDL_keyboard.h:
+	   * "The keyboard syms have been cleverly chosen to map to ASCII"
+	   * ... I hope that this design feature is portable, and durable ;)
 	   */
-	  Returnkey = (int) event.key.key;
-	  if ( event.key.mod & SDL_KMOD_SHIFT )
-	    Returnkey = toupper( (int)event.key.key );
+	  Returnkey = (int) event.key.keysym.sym;
+	  if ( event.key.keysym.mod & KMOD_SHIFT )
+	    Returnkey = toupper( (int)event.key.keysym.sym );
 	  break;
 
-	case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
+	case SDL_JOYBUTTONDOWN:
 	  if (event.jbutton.button == 0)
 	    Returnkey = JOY_BUTTON1;
 	  else if (event.jbutton.button == 1)
@@ -566,7 +614,7 @@ getchar_raw (void)
 	    Returnkey = JOY_BUTTON4;
 	  break;
 
-        case SDL_EVENT_JOYSTICK_AXIS_MOTION:
+        case SDL_JOYAXISMOTION:
 	  axis = event.jaxis.axis;
           if (axis == 0 || ((joy_num_axes >= 5) && (axis == 3)) ) /* x-axis */
 	    {
@@ -592,19 +640,16 @@ getchar_raw (void)
             }
           break;
 
-	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_MOUSEBUTTONDOWN:
 	  if (event.button.button == SDL_BUTTON_LEFT)
 	    Returnkey = MOUSE_BUTTON1;
 	  else if (event.button.button == SDL_BUTTON_RIGHT)
 	    Returnkey = MOUSE_BUTTON2;
 	  else if (event.button.button == SDL_BUTTON_MIDDLE)
 	    Returnkey = MOUSE_BUTTON3;
-	  break;
-
-	case SDL_EVENT_MOUSE_WHEEL:
-	  if (event.wheel.y > 0)
+	  else if (event.button.button == SDL_BUTTON_WHEELUP)
 	    Returnkey = MOUSE_WHEELUP;
-	  else if (event.wheel.y < 0)
+	  else if (event.button.button == SDL_BUTTON_WHEELDOWN)
 	    Returnkey = MOUSE_WHEELDOWN;
 	  break;
 
@@ -653,7 +698,7 @@ KeyIsPressed (int key)
 {
   update_input();
 
-  return( (get_input_state(key) & PRESSED) == PRESSED );
+  return( (input_state[key] & PRESSED) == PRESSED );
 }
 
 
@@ -672,7 +717,7 @@ KeyIsPressedR (int key)
 void
 ReleaseKey (int key)
 {
-  set_input_state(key, FALSE);
+  input_state[key] = FALSE;
   return;
 }
 
@@ -723,7 +768,7 @@ int
 JoyAxisMotion ( void )
 {
   update_input();
-  return ( get_input_state(JOY_UP) || get_input_state(JOY_DOWN) || get_input_state(JOY_LEFT) || get_input_state(JOY_RIGHT) );
+  return ( input_state[JOY_UP] || input_state[JOY_DOWN] || input_state[JOY_LEFT] || input_state[JOY_RIGHT] );
 }
 
 // check if any keys have been 'freshly' pressed
@@ -732,17 +777,17 @@ int
 any_key_just_pressed (void)
 {
 #ifdef ANDROID
-    SDL_UpdateWindowSurface(FD_GetWindow());	// make sure we keep updating screen to read out Android inputs
+    SDL_Flip(ne_screen);	// make sure we keep updating screen to read out Android inputs
 #endif
   update_input();
 
-  int i;
-  for (i=0; i < input_state_count; i++)
+  int key;
+  for (key=0; key < INPUT_LAST; key++)
     {
-      if ( just_pressed(input_state[i].state) )
+      if ( just_pressed(input_state[key]) )
         {
-          clear_fresh(input_state[i].state);
-          return input_state[i].key;
+          clear_fresh(input_state[key]);
+          return key;
         }
     }
 
@@ -755,15 +800,15 @@ bool
 any_key_is_pressedR (void)
 {
 #ifdef ANDROID
-  SDL_UpdateWindowSurface(FD_GetWindow());	// make sure we keep updating screen to read out Android inputs
+  SDL_Flip(ne_screen);	// make sure we keep updating screen to read out Android inputs
 #endif
   update_input();
 
-  int i;
-  for ( i=0; i < input_state_count; i ++)
+  int key;
+  for ( key=0; key < INPUT_LAST; key ++)
     {
-      if ( (input_state[i].state & PRESSED) ) {
-        input_state[i].state = 0;
+      if ( (input_state[key] & PRESSED) ) {
+        input_state[key] = 0;
         return TRUE;
       }
     }

@@ -31,8 +31,6 @@
 
 #define _main_c
 
-#include <SDL3/SDL_main.h>
-
 #include "system.h"
 
 #include "defs.h"
@@ -71,13 +69,16 @@ main (int argc, char * argv[])
   sound_on = TRUE;	 /* default value, can be overridden by command-line */
 
   init_keystr();
+#ifdef __amigaos__
+  amiga_init ();
+#endif
 
   now = SDL_GetTicks();
   InitFreedroid (argc, argv);   // Initialisation of global variables and arrays
 
-  SDL_HideCursor ();
+  SDL_ShowCursor (SDL_DISABLE);
 
-#ifdef SDL_PLATFORM_WIN32
+#ifdef __WIN32__
   // spread the word :)
   Win32Disclaimer ();
 #endif
@@ -110,12 +111,12 @@ main (int argc, char * argv[])
 
       ClearGraphMem();
       DisplayBanner (NULL, NULL, BANNER_FORCE_UPDATE |BANNER_NO_SDL_UPDATE);
-      SDL_UpdateWindowSurface(FD_GetWindow());
+      SDL_Flip(ne_screen);
 
       GameOver = FALSE;
 
       SDL_SetCursor (crosshair_cursor); // default cursor is a crosshair
-      SDL_ShowCursor ();
+      SDL_ShowCursor (SDL_ENABLE);
 
       while (!GameOver && !QuitProgram)
 	{
@@ -125,8 +126,8 @@ main (int argc, char * argv[])
 
 	  ReactToSpecialKeys();
 
-	  if (show_cursor) SDL_ShowCursor();
-	  else SDL_HideCursor();
+	  if (show_cursor) SDL_ShowCursor(SDL_ENABLE);
+	  else SDL_ShowCursor(SDL_DISABLE);
 
 	  MoveLevelDoors ();
 

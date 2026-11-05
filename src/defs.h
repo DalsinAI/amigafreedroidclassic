@@ -57,17 +57,15 @@
 #define Copy_Rect(src, dst) do {\
 (dst).x = (src).x; (dst).y = (src).y; (dst).w = (src).w; (dst).h = (src).h; } while(0)
 
-#define FreeIfUsed(pt) do { if ((pt)) SDL_DestroySurface((pt)); } while(0)
+#define FreeIfUsed(pt) do { if ((pt)) SDL_FreeSurface((pt)); } while(0)
 
 #define NUM_ELEM(x) ( sizeof((x)) / sizeof((x)[0]) )
 
 // ----------------------------------------
 // some input-related defines and macros
 
-#define FD_INPUT_BASE 0x100000
-
 enum  _pointer_states {
-  MOUSE_UP = FD_INPUT_BASE,
+  MOUSE_UP = SDLK_LAST+1,
   MOUSE_RIGHT,
   MOUSE_DOWN,
   MOUSE_LEFT,
@@ -115,9 +113,9 @@ enum _cmds {
 #define ReturnPressed() (KeyIsPressed(SDLK_RETURN))
 #define ReturnPressedR() (KeyIsPressedR(SDLK_RETURN))
 
-#define ShiftPressed() ModIsPressed(SDL_KMOD_SHIFT)
-#define AltPressed() ModIsPressed(SDL_KMOD_ALT)
-#define CtrlPressed() ModIsPressed(SDL_KMOD_CTRL)
+#define ShiftPressed() ModIsPressed(KMOD_SHIFT)
+#define AltPressed() ModIsPressed(KMOD_ALT)
+#define CtrlPressed() ModIsPressed(KMOD_CTRL)
 
 #define MouseLeftPressed() KeyIsPressed(MOUSE_BUTTON1)
 #define MouseLeftPressedR() KeyIsPressedR(MOUSE_BUTTON1)
@@ -196,7 +194,12 @@ typedef enum
 /* ************************************************************
  * Highscore related defines
  *************************************************************/
+#ifdef __amigaos__
+/* acsdl12 reads PNG only: amiga/tools/convert_gfx.py made the JPEGs PNGs */
+#define HS_BACKGROUND_FILE     "transfer.png"
+#else
 #define HS_BACKGROUND_FILE     "transfer.jpg"
+#endif
 #define HS_EMPTY_ENTRY  "--- empty ---"
 #define MAX_NAME_LEN 	15     /* max len of highscore name entry */
 #define MAX_HIGHSCORES  10     /* only keep Top10 */
@@ -265,12 +268,23 @@ enum _alertnames {
 
 
 #define BANNER_BLOCK_FILE       "banner.png"
+#ifdef __amigaos__
+#define TITLE_PIC_FILE          "title.png"
+#define CONSOLE_PIC_FILE        "console_fg.png"
+#define CONSOLE_BG_PIC1_FILE    "console_bg1.png"
+#define CONSOLE_BG_PIC2_FILE    "console_bg2.png"
+#define TAKEOVER_BG_PIC_FILE    "takeover_bg.png"
+#define CREDITS_PIC_FILE        "credits.png"
+#define DROID_ROT_SUFFIX        "_rot.png"  /* a droid's rotation frames */
+#else
 #define TITLE_PIC_FILE          "title.jpg"
 #define CONSOLE_PIC_FILE        "console_fg.png"
 #define CONSOLE_BG_PIC1_FILE    "console_bg1.jpg"
 #define CONSOLE_BG_PIC2_FILE    "console_bg2.jpg"
 #define TAKEOVER_BG_PIC_FILE    "takeover_bg.jpg"
 #define CREDITS_PIC_FILE        "credits.jpg"
+#define DROID_ROT_SUFFIX        ".jpg"
+#endif
 
 #define SHIP_ON_PIC_FILE        "ship_on.png"
 #define SHIP_OFF_PIC_FILE       "ship_off.png"

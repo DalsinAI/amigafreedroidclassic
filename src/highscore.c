@@ -155,7 +155,7 @@ UpdateHighscores (void)
     return;
 
   /* ok, the last one always has to go... */
-  MyFree (Highscores[num_highscores-1]);
+  free (Highscores[num_highscores-1]);
 
   /* now shuffle down the lower scores to make space */
   for (i=num_highscores-1; i> entry; i--)
@@ -185,13 +185,13 @@ UpdateHighscores (void)
   DisplayText ("Act = toggle case, Fire to enter,",  dst.x - 5*h, dst.y + dst.h + h, &User_Rect);
   DisplayText ("Start when ready: ",  dst.x - 5*h, dst.y + dst.h + h*2, &User_Rect);
 #endif
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
-  SDL_SetSurfaceClipRect (ne_screen, NULL);
+  SDL_SetClipRect (ne_screen, NULL);
 #if !defined ANDROID
   tmp_name = GetString (MAX_NAME_LEN, 2);
   strcpy (new_entry->name, tmp_name);
-  MyFree (tmp_name);
+  free (tmp_name);
 #else
   strcpy (new_entry->name, "Player");
 #endif
@@ -262,7 +262,7 @@ ShowHighscores (void)
       if (Highscores[i]->score >= 0)
 	PrintString (ne_screen, x3, y0 + (i+2)*height, "%ld", Highscores[i]->score);
     }
-  SDL_UpdateWindowSurface(FD_GetWindow());
+  SDL_Flip (ne_screen);
 
   wait_for_key_pressed();
 
@@ -274,3 +274,4 @@ ShowHighscores (void)
 
 
 #undef _highscore_c
+

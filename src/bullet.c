@@ -127,7 +127,7 @@ DeleteBullet (int Bulletnumber)
       DebugPrintf( 1 , "\nvoid DeleteBullet(...): freeing this bullets attached surfaces...");
       for ( i=0 ; i < Bulletmap[ CurBullet->type ].phases ; i++ )
 	{
-	  SDL_DestroySurface( CurBullet->SurfacePointer[i] );
+	  SDL_FreeSurface( CurBullet->SurfacePointer[i] );
 	  CurBullet->SurfacePointer[i] = NULL;
 	}
       CurBullet->Surfaces_were_generated = FALSE;
@@ -278,6 +278,7 @@ CheckBulletCollisions (int num)
   int levelnum = CurLevel->levelnum;
   float xdist, ydist;
   Bullet CurBullet = &AllBullets[num];
+  static int FBTZaehler = 0;
   finepoint step;
   int num_check_steps, stepnum;
   int i;
@@ -407,6 +408,7 @@ CheckBulletCollisions (int num)
 
 		  if (!CurBullet->mine)
 		    {
+		      FBTZaehler++;
 		    }
 		  CurBullet->type = OUT;
 		  CurBullet->mine = FALSE;
