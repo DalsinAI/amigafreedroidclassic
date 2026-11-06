@@ -19,15 +19,29 @@ ACGame and AHI). 640x480 in 256 colours, RTG or AGA (`ENV:ACGame/Display`).
         STOVE=/path/to/openamigagcc-16.2.0-open4-x86_64-linux \
         NDK=/path/to/gfopensdk/OpenNDK/Include_H \
         ACSDL=/path/to/amicradle-guest/gameports/acsdl12 \
-        ACGAME=/path/to/amicradle-guest/gameports/acgame
+        ACSDLLIB=/path/to/acsdl12/build \
+        ACGAME=/path/to/acgame ACGAMELIB=/path/to/acgame/build-amiga
 
-acsdl12 is built with its own `Makefile.amigaos`. This gives
+acsdl12 is built with its own `Makefile.amigaos`, without its own copy of
+ACGame (`ACG=`): the game links acgame.library's stubs (`libacgame.a`).
+`package/build-amiga.sh` (STOVE and OUT set) makes the release archive
+with its installer, fetching and building acgame, acsdl12 and zlib at
+pinned commits. The Makefile gives
 `build/amigaos/Freedroid/` with `freedroid`, `graphics/` (with the three
 theme drawers `classic_theme`, `lanzz_theme`, `para90_theme`), `sound/`,
 `map/`, `Config/`, this ReadMe, `COPYING`, an icon for each of them and
 for every drawer, and `Freedroid.info` beside the drawer. The icons are
 made from droid 001's picture with AmiCradle's `port_icons.py` from
 `amiga/icons/icons.json`.
+
+## Installing
+
+Unpack the archive anywhere (on AmiCradle: `SYS:Utilities/OpenCompress x
+freedroid-...lha RAM:`), then double-click `Install-Freedroid` beside the
+`Freedroid` drawer: it asks where to put the game (`Work:Games` by
+default) and keeps the `Config` drawer (options and highscores) of an
+earlier install. The drawer's `Libs` holds the acgame.library the game was
+built against, and the game opens that copy first.
 
 ## Playing
 
