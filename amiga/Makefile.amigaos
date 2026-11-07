@@ -2,7 +2,9 @@
 #
 #   make -f amiga/Makefile.amigaos STOVE=/path/to/openamigagcc-16.2.0-open4-x86_64-linux \
 #        NDK=/path/to/gfopensdk/OpenNDK/Include_H \
-#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12
+#        ACSDL=/path/to/amicradle-guest/gameports/acsdl12 \
+#        ACSDLLIB=/path/to/acsdl12/build ACGAME=/path/to/acgame \
+#        ACGAMELIB=/path/to/acgame/build-amiga
 #
 # STOVE is GFOpenAmigaGCC 16.2.0-open4 or later. ACSDL is acsdl12, built with
 # its own Makefile.amigaos (it holds zlib's inflate for the PNGs; nothing
@@ -10,6 +12,9 @@
 # The pictures are amiga/graphics (made from graphics by
 # amiga/tools/convert_gfx.py, in one 256-colour palette, the JPEGs as PNGs);
 # the music is the MODs and the sounds the WAVs of sound/, as they are.
+# acsdl12 is built with ACG= into ACSDLLIB, without its own copy of ACGame:
+# the game gets ACGame from acgame.library, through ACGAMELIB's libacgame.a
+# (DalsinAI/acgame's stubs). package/acgame-deps.sh builds both.
 # Output: build/amigaos/Freedroid/ with the program, graphics/ (and its
 # three theme drawers), sound/, map/, Config/ (options and highscores),
 # ReadMe and COPYING, their icons, and Freedroid.info beside the drawer.
@@ -17,7 +22,9 @@
 STOVE   ?= $(HOME)/CradleLab/toolchain/openamigagcc-16.2.0-open4-x86_64-linux
 NDK     ?= $(HOME)/CradleLab/gfopensdk/OpenNDK/Include_H
 ACSDL   ?= $(HOME)/CradleLab/guest-sdl/gameports/acsdl12
+ACSDLLIB ?= $(ACSDL)/build/amigaos
 ACGAME  ?= $(ACSDL)/../acgame
+ACGAMELIB ?= $(ACGAME)/build-amiga
 ZLIB    ?= $(HOME)/CradleLab/zlib-1.3.1
 CC      = $(STOVE)/bin/m68k-amigaos-gcc
 CPU     ?= -m68040 -m68881
@@ -40,7 +47,7 @@ ICONS   = amiga/icons
 all: $(OUT)/freedroid data
 
 $(OUT)/freedroid: $(OBJS) | $(OUT)
-	$(CC) $(LDFLAGS) -o $@ $^ $(ACSDL)/build/amigaos/libacsdl12.a -lm
+	$(CC) $(LDFLAGS) -o $@ $^ $(ACSDLLIB)/libacsdl12.a $(ACGAMELIB)/libacgame.a -lm
 
 # The data, and an icon for every drawer: graphics, sound, map and Config
 # have their own; each theme drawer inside graphics gets graphics.info,
