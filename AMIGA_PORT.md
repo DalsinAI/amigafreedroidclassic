@@ -29,9 +29,9 @@ with its installer, fetching and building acgame, acsdl12 and zlib at
 pinned commits. The Makefile gives
 `build/amigaos/Freedroid/` with `freedroid`, `graphics/` (with the three
 theme drawers `classic_theme`, `lanzz_theme`, `para90_theme`), `sound/`,
-`map/`, `Config/`, this ReadMe, `COPYING`, an icon for each of them and
-for every drawer, and `Freedroid.info` beside the drawer. The icons are
-made from droid 001's picture with AmiCradle's `port_icons.py` from
+`map/`, `Config/`, this ReadMe, `COPYING`, icons for the program and the
+ReadMe and licence, and `Freedroid.info` beside the drawer. The icons are
+made from our own art (`amiga/icons/art/freedroidclassic.svg`) with AmiCradle's `port_icons.py` from
 `amiga/icons/icons.json`.
 
 ## Installing

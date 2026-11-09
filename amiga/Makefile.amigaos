@@ -49,21 +49,16 @@ all: $(OUT)/freedroid data
 $(OUT)/freedroid: $(OBJS) | $(OUT)
 	$(CC) $(LDFLAGS) -o $@ $^ $(ACSDLLIB)/libacsdl12.a $(ACGAMELIB)/libacgame.a -lm
 
-# The data, and an icon for every drawer: graphics, sound, map and Config
-# have their own; each theme drawer inside graphics gets graphics.info,
-# which has no place of its own, so Workbench places it.
+# The data (its drawers have no icons, so the drawer shows only the game).
 data: | $(OUT)
 	rm -rf $(OUT)/graphics $(OUT)/sound $(OUT)/map
 	cp -r amiga/graphics $(OUT)/graphics
-	for t in $(THEMES); do cp $(ICONS)/graphics.info $(OUT)/graphics/$${t}_theme.info; done
 	mkdir -p $(OUT)/sound $(OUT)/map $(OUT)/Config
 	cp sound/*.wav sound/*.mod $(OUT)/sound/
 	cp map/Paradroid.* map/freedroid.ruleset $(OUT)/map/
 	cp AMIGA_PORT.md $(OUT)/ReadMe
 	cp COPYING $(OUT)/COPYING
-	cp $(ICONS)/freedroid.info $(ICONS)/ReadMe.info $(ICONS)/COPYING.info \
-	   $(ICONS)/graphics.info $(ICONS)/sound.info $(ICONS)/map.info \
-	   $(ICONS)/Config.info $(OUT)/
+	cp $(ICONS)/freedroid.info $(ICONS)/ReadMe.info $(ICONS)/COPYING.info $(OUT)/
 	cp $(ICONS)/drawer.info $(BUILD)/Freedroid.info
 
 $(BUILD)/%.o: src/%.c | $(BUILD)
